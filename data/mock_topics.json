@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Massive Ice Halo Appears Over Finland",
+    "summary": "A rare atmospheric halo turned a quiet sunrise into a viral weather moment.",
+    "category": "weather",
+    "source_url": "https://example.com/weather-halo",
+    "image_url": "/mock/halo.jpg",
+    "published_at": "2026-03-01T08:00:00.000Z"
+  },
+  {
+    "title": "Tiny Rescue Owl Learns to Fly Again",
+    "summary": "Wildlife rehab footage is driving strong wholesome engagement across curator pages.",
+    "category": "animals",
+    "source_url": "https://example.com/owl-rehab",
+    "image_url": "/mock/owl.jpg",
+    "published_at": "2026-03-04T12:30:00.000Z"
+  },
+  {
+    "title": "Old Train Tunnel Reopens As a Hidden Hiking Route",
+    "summary": "A restored route pairs travel nostalgia with scenic footage and history context.",
+    "category": "travel",
+    "source_url": "https://example.com/train-tunnel",
+    "image_url": "/mock/tunnel.jpg",
+    "published_at": "2026-03-06T15:45:00.000Z"
+  }
+]

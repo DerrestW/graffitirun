@@ -1,0 +1,23 @@
+[
+  {
+    "asset_id": "asset-halo-1",
+    "category": "weather",
+    "file_path": "/data/mock_assets/halo-sky.jpg",
+    "attribution_required": false,
+    "license": "internal_mock"
+  },
+  {
+    "asset_id": "asset-owl-1",
+    "category": "animals",
+    "file_path": "/data/mock_assets/owl-forest.jpg",
+    "attribution_required": false,
+    "license": "internal_mock"
+  },
+  {
+    "asset_id": "asset-tunnel-1",
+    "category": "travel",
+    "file_path": "/data/mock_assets/tunnel-path.jpg",
+    "attribution_required": false,
+    "license": "internal_mock"
+  }
+]

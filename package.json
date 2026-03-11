@@ -1,0 +1,14 @@
+{
+  "name": "graffiti-run-content-engine",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace web",
+    "build": "npm run build --workspace web",
+    "lint": "npm run lint --workspace web",
+    "supabase:migration:print": "cat supabase/migrations/20260310143000_initial_schema.sql",
+    "supabase:seed:print": "cat supabase/seed.sql"
+  }
+}

@@ -101,10 +101,10 @@ function SettingsTabs({ currentHref }: { currentHref: string }) {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`rounded-full px-4 py-3 text-sm font-semibold transition ${
+            className={`rounded-full px-4 py-3 text-sm font-semibold no-underline transition ${
               currentHref === tab.href
-                ? "border border-[#0f2d3b] bg-[color:var(--navy)] !text-white shadow-[0_10px_24px_rgba(20,56,74,0.18)]"
-                : "border border-transparent bg-white/72 !text-[color:var(--ink-soft)] hover:bg-white"
+                ? "border border-[#0f2d3b] bg-[color:var(--navy)] !text-white shadow-[0_10px_24px_rgba(20,56,74,0.24)] hover:brightness-110"
+                : "border border-[color:var(--border)] bg-white !text-[color:var(--foreground)] shadow-[0_6px_18px_rgba(15,23,42,0.06)] hover:bg-[#fffaf3]"
             }`}
           >
             {tab.label}

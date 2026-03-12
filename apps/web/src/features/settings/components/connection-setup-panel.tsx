@@ -52,7 +52,7 @@ export function ConnectionSetupPanel({
               X should be treated as both a future publishing destination and a source lane for tracked user accounts, but through API-backed adapters rather than pretending user RSS feeds are a first-class official integration.
             </p>
           </div>
-          <Link href="/settings/connections" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[color:var(--foreground)]">
+          <Link href="/settings/connections" className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-semibold no-underline text-[color:var(--foreground)] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
             Close
           </Link>
         </div>
@@ -119,7 +119,7 @@ export function ConnectionSetupPanel({
               This connector is not wired yet. Facebook and X are now the first structured channel lanes; Instagram remains planned until those are stable.
             </p>
           </div>
-          <Link href="/settings/connections" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[color:var(--foreground)]">
+          <Link href="/settings/connections" className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-semibold no-underline text-[color:var(--foreground)] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
             Close
           </Link>
         </div>
@@ -145,7 +145,7 @@ export function ConnectionSetupPanel({
             This is the connection the workspace will use for Facebook feed publishing, post metrics sync, and future monetization reporting where Meta exposes those fields.
           </p>
         </div>
-        <Link href="/settings/connections" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[color:var(--foreground)]">
+        <Link href="/settings/connections" className="rounded-full border border-[color:var(--border)] bg-white px-4 py-2 text-sm font-semibold no-underline text-[color:var(--foreground)] shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
           Close
         </Link>
       </div>
@@ -200,14 +200,14 @@ export function ConnectionSetupPanel({
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <a href="/api/connect/facebook/start" className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white">
+        <a href="/api/connect/facebook/start" className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold no-underline text-white shadow-[0_10px_24px_rgba(20,56,74,0.22)] hover:brightness-110">
           Connect with Facebook
         </a>
         <a
           href="https://developers.facebook.com/apps/"
           target="_blank"
           rel="noreferrer"
-          className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-[color:var(--foreground)]"
+          className="rounded-full border border-[color:var(--border)] bg-white px-5 py-3 text-sm font-semibold no-underline text-[color:var(--foreground)] shadow-[0_6px_18px_rgba(15,23,42,0.06)] hover:bg-[#f6f1e9]"
         >
           Open Meta app settings
         </a>

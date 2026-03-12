@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { AppShell } from "@/components/app-shell";
+import { ActionBanner } from "@/components/action-banner";
 import { PageHeader } from "@/components/page-header";
 import { ConnectionSetupPanel } from "@/features/settings/components/connection-setup-panel";
 import { getActiveWorkspace } from "@/features/workspaces/workspace-service";
@@ -16,7 +17,7 @@ const settingsTabs = [
 ];
 
 type ConnectionsSettingsPageProps = {
-  searchParams?: Promise<{ connector?: string; status?: string }>;
+  searchParams?: Promise<{ connector?: string; status?: string; error?: string }>;
 };
 
 export default async function ConnectionsSettingsPage({ searchParams }: ConnectionsSettingsPageProps) {
@@ -39,6 +40,12 @@ export default async function ConnectionsSettingsPage({ searchParams }: Connecti
         description="This is where the product becomes customer-usable: secure social connectors, per-channel status, and future multi-network rollout without rewriting the workflow."
         badge="channel setup"
       />
+      <ActionBanner status={resolvedSearchParams?.status} />
+      {resolvedSearchParams?.error ? (
+        <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+          {resolvedSearchParams.error}
+        </div>
+      ) : null}
       <SettingsTabs currentHref="/settings/connections" />
       <ConnectionSetupPanel
         connector={resolvedSearchParams?.connector}
@@ -119,10 +126,10 @@ function SettingsTabs({ currentHref }: { currentHref: string }) {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`rounded-full px-4 py-3 text-sm font-semibold transition ${
+            className={`rounded-full px-4 py-3 text-sm font-semibold no-underline transition ${
               currentHref === tab.href
-                ? "border border-[#0f2d3b] bg-[color:var(--navy)] !text-white shadow-[0_10px_24px_rgba(20,56,74,0.18)]"
-                : "border border-transparent bg-white/72 !text-[color:var(--ink-soft)] hover:bg-white"
+                ? "border border-[#0f2d3b] bg-[color:var(--navy)] !text-white shadow-[0_10px_24px_rgba(20,56,74,0.24)] hover:brightness-110"
+                : "border border-[color:var(--border)] bg-white !text-[color:var(--foreground)] shadow-[0_6px_18px_rgba(15,23,42,0.06)] hover:bg-[#fffaf3]"
             }`}
           >
             {tab.label}
@@ -163,10 +170,10 @@ function ConnectionCard({
       </div>
       <Link
         href={href}
-        className={`mt-6 inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition ${
+        className={`mt-6 inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold no-underline transition ${
           tone === "accent"
-            ? "bg-[color:var(--navy)] !text-white shadow-[0_10px_24px_rgba(20,56,74,0.18)] hover:brightness-110"
-            : "bg-white !text-[color:var(--foreground)] hover:bg-[#f6f1e9]"
+            ? "bg-[color:var(--navy)] !text-white shadow-[0_10px_24px_rgba(20,56,74,0.22)] hover:brightness-110"
+            : "border border-[color:var(--border)] bg-white !text-[color:var(--foreground)] hover:bg-[#f6f1e9]"
         }`}
       >
         {tone === "accent" ? "Configure connector" : "View roadmap"}

@@ -1,6 +1,7 @@
-import type { TrendProvider } from "../services/contracts.ts";
-import { normalizedTopicCandidates } from "../mock-data.ts";
-import { mockFixtureTrendProvider } from "../services/mock-services.ts";
+import type { TrendProvider } from "../services/contracts";
+import { normalizedTopicCandidates } from "../mock-data";
+import { rssCuratedProvider } from "./rss-curated-provider";
+import { mockFixtureTrendProvider } from "../services/mock-services";
 
 const manualEntryProvider: TrendProvider = {
   providerKey: "manual_entry",
@@ -9,11 +10,14 @@ const manualEntryProvider: TrendProvider = {
   },
 };
 
-const rssCuratedProvider: TrendProvider = {
+const fallbackRssProvider: TrendProvider = {
   providerKey: "rss_curated",
   async fetch() {
-    return normalizedTopicCandidates.filter((candidate) => candidate.providerKey === "rss_curated");
+    const liveCandidates = await rssCuratedProvider.fetch();
+    return liveCandidates.length > 0
+      ? liveCandidates
+      : normalizedTopicCandidates.filter((candidate) => candidate.providerKey === "rss_curated");
   },
 };
 
-export const trendProviders: TrendProvider[] = [mockFixtureTrendProvider, rssCuratedProvider, manualEntryProvider];
+export const trendProviders: TrendProvider[] = [mockFixtureTrendProvider, fallbackRssProvider, manualEntryProvider];

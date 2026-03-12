@@ -4,13 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AuthorizationError, requirePermission } from "@/lib/authz";
 import type { Database } from "@/lib/db/database.types";
-import { getDraftById, getTemplates, getTopics, getWorkspaceContext } from "@/lib/db/queries";
+import { getDraftById, getWorkspaceContext } from "@/lib/db/queries";
 import { currentWorkspace } from "@/lib/workspace";
 import { getAuthState } from "@/features/auth/auth-service";
 import { buildDraftInsertRecord, buildDraftStatusUpdate, buildSchedulePublishJobInput } from "@/features/drafts/workflow";
+import { listTemplates } from "@/features/templates/template-service";
+import { listTopics } from "@/features/topics/topic-service";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
-function redirectWithStatus(path: string, status: string) {
+function redirectWithStatus(path: string, status: string): never {
   const separator = path.includes("?") ? "&" : "?";
   redirect(`${path}${separator}status=${status}`);
 }
@@ -29,16 +31,16 @@ export async function createDraftFromTopicAction(formData: FormData) {
   const topicId = String(formData.get("topicId") ?? "");
   let context: Awaited<ReturnType<typeof getActionContext>>;
   let supabase: ReturnType<typeof createAdminSupabaseClient>;
-  let topics: Awaited<ReturnType<typeof getTopics>>;
-  let templates: Awaited<ReturnType<typeof getTemplates>>;
+  let topics: Awaited<ReturnType<typeof listTopics>>;
+  let templates: Awaited<ReturnType<typeof listTemplates>>;
 
   try {
     await requirePermission("createDrafts");
     [context, supabase, topics, templates] = await Promise.all([
       getActionContext(),
       Promise.resolve(createAdminSupabaseClient()),
-      getTopics(),
-      getTemplates(),
+      listTopics(),
+      listTemplates(),
     ]);
   } catch (error) {
     if (error instanceof AuthorizationError) {
@@ -58,47 +60,116 @@ export async function createDraftFromTopicAction(formData: FormData) {
     redirect("/drafts/draft-1");
   }
 
+  const persistedTopic = isUuid(topic.id)
+    ? { ...topic, workspaceId: context.workspace.workspaceId }
+    : await persistLiveTopic(supabase, context.workspace.workspaceId, topic);
+
   const records = buildDraftInsertRecord({
     workspaceId: context.workspace.workspaceId,
     actorUserId: context.actorUserId,
-    topic,
+    topic: persistedTopic,
     template,
   });
 
   const { data: draftRow, error: draftError } = await supabase
     .from("drafts")
-    .insert(records.draft)
+    .insert(records.draft as never)
     .select("*")
     .single();
+  const createdDraft = draftRow as { id: string } | null;
 
-  if (draftError || !draftRow) {
+  if (draftError || !createdDraft) {
     throw new Error(draftError?.message ?? "Failed to create draft.");
   }
 
   await Promise.all([
     supabase.from("draft_versions").insert({
       ...records.version,
-      draft_id: draftRow.id,
-    }),
+      draft_id: createdDraft.id,
+    } as never),
     supabase.from("captions").insert(
       records.captions.map((caption) => ({
         ...caption,
-        draft_id: draftRow.id,
-      })),
+        draft_id: createdDraft.id,
+      })) as never,
     ),
     supabase.from("approval_logs").insert({
       workspace_id: context.workspace.workspaceId,
-      draft_id: draftRow.id,
+      draft_id: createdDraft.id,
       action: "created",
       actor_user_id: context.actorUserId,
       notes: "Draft created from topic queue.",
-    }),
+    } as never),
   ]);
 
   revalidatePath("/topics");
   revalidatePath("/dashboard");
   revalidatePath("/publishing");
-  redirectWithStatus(`/drafts/${draftRow.id}`, "draft_created");
+  redirectWithStatus(`/drafts/${createdDraft.id}`, "draft_created");
+}
+
+async function persistLiveTopic(
+  supabase: NonNullable<ReturnType<typeof createAdminSupabaseClient>>,
+  workspaceId: string,
+  topic: Awaited<ReturnType<typeof listTopics>>[number],
+) {
+  const existing = await supabase
+    .from("topics")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .eq("source_url", topic.sourceUrl)
+    .maybeSingle();
+  const existingTopic = existing.data as { id: string } | null;
+
+  if (existingTopic) {
+    return {
+      ...topic,
+      id: existingTopic.id,
+      workspaceId,
+    };
+  }
+
+  const inserted = await supabase
+    .from("topics")
+    .insert({
+      workspace_id: workspaceId,
+      source_id: null,
+      external_ref: topic.id,
+      title: topic.title,
+      summary: topic.summary,
+      source_url: topic.sourceUrl,
+      source_domain: topic.sourceDomain,
+      image_url: topic.imageUrl,
+      published_at_source: topic.publishedAt,
+      category: topic.category,
+      language: "en",
+      freshness_score: topic.scores.freshness,
+      viral_score: topic.scores.viral,
+      brand_fit_score: topic.scores.brandFit,
+      political_risk_score: topic.scores.politicalRisk,
+      rights_risk_score: topic.scores.rightsRisk,
+      tragedy_risk_score: topic.scores.tragedyRisk,
+      duplicate_risk_score: topic.scores.duplicateRisk,
+      final_score: topic.scores.final,
+      status: "candidate",
+    } as never)
+    .select("*")
+    .single();
+  const insertedTopic = inserted.data as { id: string } | null;
+
+  if (inserted.error || !insertedTopic) {
+    throw new Error(inserted.error?.message ?? "Failed to persist the selected topic.");
+  }
+
+  return {
+    ...topic,
+    id: insertedTopic.id,
+    workspaceId,
+  };
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export async function addReviewCommentAction(formData: FormData) {
@@ -131,7 +202,7 @@ export async function addReviewCommentAction(formData: FormData) {
     draft_id: draftId,
     user_id: context.actorUserId,
     comment,
-  });
+  } as never);
 
   await supabase.from("approval_logs").insert({
     workspace_id: context.workspace.workspaceId,
@@ -139,7 +210,7 @@ export async function addReviewCommentAction(formData: FormData) {
     action: "commented",
     actor_user_id: context.actorUserId,
     notes: comment,
-  });
+  } as never);
 
   revalidatePath(`/drafts/${draftId}`);
   redirectWithStatus(`/drafts/${draftId}`, "comment_added");
@@ -170,14 +241,14 @@ async function updateDraftStatus(
 
   const updatePayload: Partial<Database["public"]["Tables"]["drafts"]["Row"]> = buildDraftStatusUpdate(status, context.actorUserId);
 
-  await supabase.from("drafts").update(updatePayload).eq("id", draftId).eq("workspace_id", context.workspace.workspaceId);
+  await supabase.from("drafts").update(updatePayload as never).eq("id", draftId).eq("workspace_id", context.workspace.workspaceId);
   await supabase.from("approval_logs").insert({
     workspace_id: context.workspace.workspaceId,
     draft_id: draftId,
     action,
     actor_user_id: context.actorUserId,
     notes,
-  });
+  } as never);
 
   revalidatePath("/dashboard");
   revalidatePath(`/drafts/${draftId}`);
@@ -269,12 +340,12 @@ export async function schedulePublishAction(formData: FormData) {
     scheduledFor,
   });
 
-  await supabase.from("drafts").update(scheduleInput.draftUpdate).eq("id", draftId).eq("workspace_id", context.workspace.workspaceId);
+  await supabase.from("drafts").update(scheduleInput.draftUpdate as never).eq("id", draftId).eq("workspace_id", context.workspace.workspaceId);
 
   if (existingJob) {
-    await supabase.from("publish_jobs").update(scheduleInput.publishJob).eq("id", existingJob.id);
+    await supabase.from("publish_jobs").update(scheduleInput.publishJob as never).eq("id", existingJob.id);
   } else {
-    await supabase.from("publish_jobs").insert(scheduleInput.publishJob);
+    await supabase.from("publish_jobs").insert(scheduleInput.publishJob as never);
   }
 
   await supabase.from("approval_logs").insert({
@@ -283,7 +354,7 @@ export async function schedulePublishAction(formData: FormData) {
     action: "scheduled",
     actor_user_id: context.actorUserId,
     notes: scheduleInput.approvalLogNote,
-  });
+  } as never);
 
   revalidatePath("/dashboard");
   revalidatePath("/publishing");

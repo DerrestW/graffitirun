@@ -15,7 +15,14 @@ import {
   mapWorkspace,
 } from "@/lib/db/mappers";
 
+const preferMockData = process.env.NODE_ENV === "development";
+
 export async function getWorkspaceContext(): Promise<WorkspaceContext> {
+  if (preferMockData) {
+    const { currentWorkspace } = await import("@/lib/workspace");
+    return currentWorkspace;
+  }
+
   const [auth, supabase] = await Promise.all([getAuthState(), Promise.resolve(createAdminSupabaseClient())]);
 
   if (!supabase || auth.provider === "mock" || !auth.signedIn) {
@@ -58,6 +65,10 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext> {
 }
 
 export async function getTopics(): Promise<Topic[]> {
+  if (preferMockData) {
+    return topics;
+  }
+
   const supabase = createAdminSupabaseClient();
 
   if (!supabase) {
@@ -89,8 +100,37 @@ export async function getTopics(): Promise<Topic[]> {
   return topicRows.map((row) => mapTopic(row, groupedChecks.get(row.id) ?? []));
 }
 
+export async function getTopicById(id: string): Promise<Topic | null> {
+  const supabase = createAdminSupabaseClient();
+
+  if (preferMockData && !supabase) {
+    return topics.find((topic) => topic.id === id) ?? null;
+  }
+
+  if (!supabase) {
+    return topics.find((topic) => topic.id === id) ?? null;
+  }
+
+  const workspace = await getWorkspaceContext();
+  const topicResult = await supabase.from("topics").select("*").eq("workspace_id", workspace.workspaceId).eq("id", id).maybeSingle();
+  const row = topicResult.data as Database["public"]["Tables"]["topics"]["Row"] | null;
+
+  if (!row) {
+    return topics.find((topic) => topic.id === id) ?? null;
+  }
+
+  const checksResult = await supabase.from("topic_checks").select("*").eq("workspace_id", workspace.workspaceId).eq("topic_id", id);
+  const checks = checksResult.data as Database["public"]["Tables"]["topic_checks"]["Row"][] | null;
+
+  return mapTopic(row, checks ?? []);
+}
+
 export async function getTemplates(): Promise<Template[]> {
   const supabase = createAdminSupabaseClient();
+
+  if (preferMockData && !supabase) {
+    return templates;
+  }
 
   if (!supabase) {
     return templates;
@@ -105,6 +145,10 @@ export async function getTemplates(): Promise<Template[]> {
 
 export async function getDrafts(): Promise<Draft[]> {
   const supabase = createAdminSupabaseClient();
+
+  if (preferMockData && !supabase) {
+    return drafts;
+  }
 
   if (!supabase) {
     return drafts;
@@ -145,11 +189,15 @@ export async function getDrafts(): Promise<Draft[]> {
 
 export async function getDraftById(id: string): Promise<Draft | null> {
   const draftList = await getDrafts();
-  return draftList.find((draft) => draft.id === id) ?? draftList[0] ?? null;
+  return draftList.find((draft) => draft.id === id) ?? null;
 }
 
 export async function getPublishJobs(): Promise<PublishJob[]> {
   const supabase = createAdminSupabaseClient();
+
+  if (preferMockData && !supabase) {
+    return publishJobs;
+  }
 
   if (!supabase) {
     return publishJobs;
@@ -173,6 +221,10 @@ export async function getPublishJobs(): Promise<PublishJob[]> {
 
 export async function getAnalytics(): Promise<AnalyticsSnapshot> {
   const supabase = createAdminSupabaseClient();
+
+  if (preferMockData && !supabase) {
+    return analyticsSnapshot;
+  }
 
   if (!supabase) {
     return analyticsSnapshot;
@@ -201,6 +253,12 @@ export async function getAnalytics(): Promise<AnalyticsSnapshot> {
 }
 
 export async function getWorkspacePolicySummary() {
+  if (preferMockData) {
+    return {
+      blockedCategories: ["politics"],
+    };
+  }
+
   const supabase = createAdminSupabaseClient();
 
   if (!supabase) {

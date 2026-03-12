@@ -1,6 +1,6 @@
 import "server-only";
 
-import { trendProviders } from "./trend-provider-registry.ts";
+import { trendProviders } from "./trend-provider-registry";
 
 export function getTrendProviders() {
   return trendProviders;

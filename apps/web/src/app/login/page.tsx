@@ -1,15 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { LoginForm } from "@/features/auth/components/login-form";
-import { getAuthState } from "@/features/auth/auth-service";
 
-export default async function LoginPage() {
-  const auth = await getAuthState();
-
-  if (auth.signedIn) {
-    redirect("/dashboard");
-  }
-
+export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 lg:px-8">
       <div className="grid w-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">

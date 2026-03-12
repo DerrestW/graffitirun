@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="180" viewBox="0 0 360 180">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#0d1418" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path d="M48 38h218c17 0 30 13 30 30v46c0 17-13 30-30 30H146l-34 20 6-20H48c-17 0-30-13-30-30V68c0-17 13-30 30-30Z" fill="#0d1115" stroke="#ffffff" stroke-width="8"/>
+    <text x="158" y="94" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="56" fill="#ffffff">GRAFFITI</text>
+    <text x="188" y="142" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="58" fill="#53d84a">RUN</text>
+    <circle cx="288" cy="34" r="20" fill="#ffd24d"/>
+    <circle cx="312" cy="26" r="18" fill="#5ed1ff"/>
+    <circle cx="329" cy="47" r="15" fill="#ff7cb0"/>
+  </g>
+</svg>

@@ -42,6 +42,11 @@ Create `apps/web/.env.local` from `apps/web/.env.example` when wiring Supabase:
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+META_GRAPH_API_VERSION=v23.0
+META_APP_ID=your-meta-app-id
+META_APP_SECRET=your-meta-app-secret
+META_PAGE_ID=your-facebook-page-id
+META_PAGE_ACCESS_TOKEN=your-long-lived-page-access-token
 ```
 
 The app runs locally with mock data if these are absent.
@@ -94,3 +99,5 @@ The app runs locally with mock data if these are absent.
 - Publishing is adapter-ready for Facebook but stubbed for local use.
 - Analytics use seeded data in the UI while the schema and service contracts are shaped for live sync later.
 - Template rendering is static-composition-first for MVP.
+- Template previews now render actual post mockups in the UI so drafts can be approved against a visual asset instead of placeholder boxes.
+- Meta publishing and earnings sync are scaffolded through env-driven connector readiness checks; live posting still requires a public asset URL plus valid Page credentials.

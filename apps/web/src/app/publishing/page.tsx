@@ -1,12 +1,13 @@
 import { AppShell } from "@/components/app-shell";
 import { ActionBanner } from "@/components/action-banner";
-import { FormSubmitButton } from "@/components/form-submit-button";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/status-pill";
-import { runPublishJobAction } from "@/features/publishing/actions";
+import { RunPublishJobButton } from "@/features/publishing/components/run-publish-job-button";
 import { listPublishJobs } from "@/features/publishing/publishing-service";
 import { getActiveWorkspace } from "@/features/workspaces/workspace-service";
 import { formatDateTime } from "@/lib/formatters";
+import { getMetaIntegrationStatus } from "@/lib/integrations/meta";
+import { getXIntegrationStatus } from "@/lib/integrations/x";
 
 type PublishingPageProps = {
   searchParams?: Promise<{ status?: string }>;
@@ -15,6 +16,8 @@ type PublishingPageProps = {
 export default async function PublishingPage({ searchParams }: PublishingPageProps) {
   const resolvedSearchParams = await searchParams;
   const [workspace, jobs] = await Promise.all([getActiveWorkspace(), listPublishJobs()]);
+  const meta = getMetaIntegrationStatus();
+  const x = getXIntegrationStatus();
   const queued = jobs.filter((job) => job.status === "queued" || job.status === "running");
   const succeeded = jobs.filter((job) => job.status === "succeeded");
   const failed = jobs.filter((job) => job.status === "failed");
@@ -24,10 +27,60 @@ export default async function PublishingPage({ searchParams }: PublishingPagePro
       <ActionBanner status={resolvedSearchParams?.status} />
       <PageHeader
         eyebrow="Publishing Queue"
-        title="Connector-ready jobs with safe local stubs"
-        description="The job model, schedule fields, and adapter contract are ready for Facebook wiring, while local development still runs without credentials or live publishing."
-        badge="Facebook ready"
+        title="Connector-ready jobs with safe local execution"
+        description="The queue is split by state and can run through local-safe adapters while remaining structured for future Facebook and X wiring."
+        badge="multi-channel ready"
       />
+      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <article className="surface rounded-[1.75rem] p-6">
+          <p className="text-xs uppercase tracking-[0.24em] text-[color:var(--muted)]">Channel readiness</p>
+          <h2 className="mt-2 display-font text-2xl font-semibold">Publishing readiness</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className="rounded-[1.4rem] bg-white/80 p-4">
+              <p className="text-sm font-semibold text-[color:var(--foreground)]">Facebook</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <div className="rounded-[1rem] bg-[#f6f1e8] p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted)]">Page ID</p>
+                  <p className="mt-2 text-sm text-[color:var(--foreground)]">{meta.pageIdPresent ? "Configured" : "Missing"}</p>
+                </div>
+                <div className="rounded-[1rem] bg-[#f6f1e8] p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted)]">Token</p>
+                  <p className="mt-2 text-sm text-[color:var(--foreground)]">{meta.tokenPresent ? "Configured" : "Missing"}</p>
+                </div>
+                <div className="rounded-[1rem] bg-[#f6f1e8] p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted)]">Graph</p>
+                  <p className="mt-2 text-sm text-[color:var(--foreground)]">{meta.graphVersion}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-[1.4rem] bg-white/80 p-4">
+              <p className="text-sm font-semibold text-[color:var(--foreground)]">X</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <div className="rounded-[1rem] bg-[#f6f1e8] p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted)]">Handle</p>
+                  <p className="mt-2 text-sm text-[color:var(--foreground)]">{x.accountHandle ? `@${x.accountHandle.replace(/^@/, "")}` : "Missing"}</p>
+                </div>
+                <div className="rounded-[1rem] bg-[#f6f1e8] p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted)]">Publishing</p>
+                  <p className="mt-2 text-sm text-[color:var(--foreground)]">{x.publishingReady ? "Ready" : "Missing"}</p>
+                </div>
+                <div className="rounded-[1rem] bg-[#f6f1e8] p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--muted)]">Ingestion</p>
+                  <p className="mt-2 text-sm text-[color:var(--foreground)]">{x.ingestionReady ? "Ready" : "Missing"}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article className="surface rounded-[1.75rem] p-6">
+          <p className="text-xs uppercase tracking-[0.24em] text-[color:var(--muted)]">Live publish requirements</p>
+          <ul className="mt-4 space-y-3 text-sm text-[color:var(--ink-soft)]">
+            <li>Render asset to a publicly reachable storage URL.</li>
+            <li>Connect at least one channel, starting with Facebook or X.</li>
+            <li>Send final caption plus rendered asset through the selected channel adapter.</li>
+          </ul>
+        </article>
+      </section>
       <section className="grid gap-6 xl:grid-cols-3">
         {[
           { title: "Scheduled", items: queued, tone: "accent" as const },
@@ -49,14 +102,7 @@ export default async function PublishingPage({ searchParams }: PublishingPagePro
                   <p className="mt-2 text-sm text-[color:var(--ink-soft)]">{formatDateTime(job.scheduledFor)}</p>
                   {job.errorMessage ? <p className="mt-3 text-sm text-[color:var(--danger)]">{job.errorMessage}</p> : null}
                   {(job.status === "queued" || job.status === "running") && column.title === "Scheduled" ? (
-                    <form action={runPublishJobAction} className="mt-4">
-                      <input type="hidden" name="jobId" value={job.id} />
-                      <FormSubmitButton
-                        idleLabel="Run now"
-                        pendingLabel="Running..."
-                        className="rounded-full bg-[color:var(--navy)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
-                      />
-                    </form>
+                    <RunPublishJobButton jobId={job.id} />
                   ) : null}
                 </div>
               ))}

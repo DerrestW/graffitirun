@@ -1,0 +1,54 @@
+[
+  {
+    "providerKey": "rss_curated",
+    "label": "ESPN Top Headlines",
+    "feedUrl": "https://www.espn.com/espn/rss/news",
+    "category": "sports",
+    "domain": "espn.com",
+    "enabled": true
+  },
+  {
+    "providerKey": "rss_curated",
+    "label": "Climate.gov Highlights",
+    "feedUrl": "https://content-drupal.climate.gov/feeds/news-features/highlights.rss",
+    "category": "weather",
+    "domain": "climate.gov",
+    "enabled": true
+  },
+  {
+    "providerKey": "rss_curated",
+    "label": "Google News Running",
+    "feedUrl": "https://news.google.com/rss/search?q=%28%22running%22%20OR%20marathon%20OR%20half%20marathon%20OR%20trail%20running%20OR%20training%29%20-congress%20-election%20-office%20-senate%20-governor&hl=en-US&gl=US&ceid=US:en",
+    "category": "running",
+    "domain": "news.google.com",
+    "enabled": true,
+    "includeKeywords": ["running", "runner", "marathon", "trail", "training"],
+    "excludeKeywords": ["congress", "election", "senate", "governor", "office"],
+    "itemLimit": 8
+  },
+  {
+    "providerKey": "rss_curated",
+    "label": "CDC Vital Signs",
+    "feedUrl": "https://tools.cdc.gov/api/v2/resources/media/275866.rss",
+    "category": "health",
+    "domain": "cdc.gov",
+    "enabled": true
+  },
+  {
+    "providerKey": "rss_curated",
+    "label": "NOAA Ocean Facts",
+    "feedUrl": "https://oceanservice.noaa.gov/rss/oceanfacts.xml",
+    "category": "animals",
+    "domain": "noaa.gov",
+    "enabled": true
+  },
+  {
+    "providerKey": "rss_curated",
+    "label": "Entertainment Tonight News",
+    "feedUrl": "https://www.etonline.com/news/rss",
+    "category": "celebrity",
+    "domain": "etonline.com",
+    "enabled": true,
+    "itemLimit": 8
+  }
+]

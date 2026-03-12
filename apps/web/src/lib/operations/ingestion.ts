@@ -53,9 +53,10 @@ export async function runTopicIngestion(): Promise<IngestionResult[]> {
       .eq("provider_name", provider)
       .limit(1)
       .maybeSingle();
+    const existingSourceRow = existingSource.data as { id: string } | null;
 
-    if (existingSource.data?.id) {
-      sourceRows.set(provider, existingSource.data.id);
+    if (existingSourceRow?.id) {
+      sourceRows.set(provider, existingSourceRow.id);
       continue;
     }
 
@@ -68,12 +69,13 @@ export async function runTopicIngestion(): Promise<IngestionResult[]> {
         source_url: provider === "rss_curated" ? "https://example.com/feed.xml" : "file:///data/mock_topics.json",
         status: "active",
         rights_policy: provider === "mock_fixture" ? "approved" : "review_required",
-      })
+      } as never)
       .select("id")
       .single();
+    const insertedSourceRow = inserted.data as { id: string } | null;
 
-    if (inserted.data?.id) {
-      sourceRows.set(provider, inserted.data.id);
+    if (insertedSourceRow?.id) {
+      sourceRows.set(provider, insertedSourceRow.id);
     }
   }
 
@@ -118,17 +120,18 @@ export async function runTopicIngestion(): Promise<IngestionResult[]> {
         duplicate_risk_score: scores.duplicateRisk,
         final_score: scores.final,
         status: "candidate",
-      })
+      } as never)
       .select("id")
       .single();
+    const insertedTopicRow = insertedTopic.data as { id: string } | null;
 
-    if (!insertedTopic.data?.id) {
+    if (!insertedTopicRow?.id) {
       providerResult.skipped += 1;
       results.set(candidate.providerKey, providerResult);
       continue;
     }
 
-    const topicId = insertedTopic.data.id;
+    const topicId = insertedTopicRow.id;
     await supabase.from("topic_checks").insert([
       {
         workspace_id: workspace.workspaceId,
@@ -146,7 +149,7 @@ export async function runTopicIngestion(): Promise<IngestionResult[]> {
         score: candidate.rightsConfidence === "high" ? 86 : 72,
         notes: candidate.rightsConfidence === "high" ? "Higher confidence source policy." : "Requires rights review before publish.",
       },
-    ]);
+    ] as never);
 
     seenRefs.add(candidate.externalRef);
     seenTitles.add(candidate.title.toLowerCase());

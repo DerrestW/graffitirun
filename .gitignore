@@ -3,4 +3,7 @@ apps/web/node_modules/
 apps/web/.next/
 apps/web/.env.local
 apps/web/.env
+.env.local
+apps/web/public/uploads/*
+!apps/web/public/uploads/.gitkeep
 .DS_Store

@@ -16,6 +16,18 @@ export type AppAuthState = {
 };
 
 export const getAuthState = cache(async (): Promise<AppAuthState> => {
+  if (process.env.NODE_ENV === "development") {
+    return {
+      signedIn: true,
+      provider: "mock",
+      user: {
+        id: currentWorkspace.currentUser.id,
+        email: currentWorkspace.currentUser.email,
+        fullName: currentWorkspace.currentUser.fullName,
+      },
+    };
+  }
+
   const supabase = await createServerSupabaseClient();
 
   if (!supabase) {

@@ -1,5 +1,5 @@
-import type { Database } from "../../lib/db/database.types.ts";
-import type { Draft, Template, Topic } from "../../lib/domain.ts";
+import type { Database } from "../../lib/db/database.types";
+import type { Draft, Template, Topic } from "../../lib/domain";
 
 export function buildDraftPayload(topic: Topic) {
   const title = topic.title.replace(/[.!?]+$/, "");

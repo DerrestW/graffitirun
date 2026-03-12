@@ -1,28 +1,30 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f1e8;
-  --foreground: #1f2521;
-  --surface: rgba(255, 250, 242, 0.82);
-  --surface-strong: rgba(255, 248, 237, 0.95);
-  --border: rgba(31, 37, 33, 0.12);
-  --muted: #667066;
-  --accent: #ee6c4d;
-  --accent-strong: #c75236;
-  --accent-soft: rgba(238, 108, 77, 0.12);
-  --success: #247a5a;
-  --warning: #ba7a12;
-  --danger: #9f3d33;
-  --ink-soft: #4c554d;
-  --navy: #214e63;
-  --glow: rgba(33, 78, 99, 0.16);
+  --background: #ece8dd;
+  --foreground: #172126;
+  --surface: rgba(248, 245, 239, 0.8);
+  --surface-strong: rgba(255, 252, 247, 0.92);
+  --border: rgba(23, 33, 38, 0.1);
+  --muted: #6d7268;
+  --accent: #d96b31;
+  --accent-strong: #b34f1c;
+  --accent-soft: rgba(217, 107, 49, 0.12);
+  --success: #21654e;
+  --warning: #a86b12;
+  --danger: #9b342e;
+  --ink-soft: #4f5a60;
+  --navy: #14384a;
+  --glow: rgba(20, 56, 74, 0.2);
+  --gold: #c5a05e;
+  --shadow: rgba(34, 31, 24, 0.12);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-body);
-  --font-display: var(--font-display);
+  --font-sans: "Avenir Next", "Segoe UI", sans-serif;
+  --font-display: "Helvetica Neue", "Avenir Next", sans-serif;
 }
 
 * {
@@ -31,18 +33,19 @@
 
 html {
   background:
-    radial-gradient(circle at top left, rgba(238, 108, 77, 0.14), transparent 28%),
-    radial-gradient(circle at top right, rgba(33, 78, 99, 0.16), transparent 32%),
-    linear-gradient(180deg, #f6f1e8 0%, #efe4d2 100%);
+    radial-gradient(circle at top left, rgba(217, 107, 49, 0.18), transparent 24%),
+    radial-gradient(circle at top right, rgba(20, 56, 74, 0.18), transparent 30%),
+    linear-gradient(180deg, #eee9de 0%, #e1dccf 100%);
 }
 
 body {
   color: var(--foreground);
-  font-family: var(--font-body), sans-serif;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 20% 0%, rgba(238, 108, 77, 0.06), transparent 30%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.25));
+    radial-gradient(circle at 10% 10%, rgba(217, 107, 49, 0.08), transparent 24%),
+    radial-gradient(circle at 85% 0%, rgba(20, 56, 74, 0.09), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.18));
 }
 
 a {
@@ -56,19 +59,19 @@ button {
 
 .surface {
   background: var(--surface);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(22px);
   border: 1px solid var(--border);
-  box-shadow: 0 20px 60px rgba(50, 48, 42, 0.08);
+  box-shadow: 0 20px 60px var(--shadow);
 }
 
 .surface-strong {
   background: var(--surface-strong);
   border: 1px solid var(--border);
-  box-shadow: 0 14px 40px rgba(50, 48, 42, 0.08);
+  box-shadow: 0 14px 40px rgba(34, 31, 24, 0.08);
 }
 
 .display-font {
-  font-family: var(--font-display), sans-serif;
+  font-family: "Helvetica Neue", "Avenir Next", sans-serif;
 }
 
 .status-dot::before {
@@ -79,4 +82,42 @@ button {
   display: inline-block;
   margin-right: 0.45rem;
   background: currentColor;
+}
+
+.hero-panel {
+  background:
+    linear-gradient(135deg, rgba(20, 56, 74, 0.98), rgba(17, 31, 39, 0.94)),
+    radial-gradient(circle at top right, rgba(217, 107, 49, 0.3), transparent 32%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 28px 80px rgba(14, 23, 29, 0.28);
+}
+
+.paper-grid {
+  position: relative;
+}
+
+.paper-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(20, 56, 74, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 56, 74, 0.04) 1px, transparent 1px);
+  background-size: 26px 26px;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent);
+}
+
+.section-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.section-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(217, 107, 49, 0.7), rgba(20, 56, 74, 0));
 }

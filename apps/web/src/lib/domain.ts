@@ -21,6 +21,7 @@ export type Topic = {
   sourceDomain: string;
   publishedAt: string;
   imageUrl: string;
+  insetImageUrl?: string;
   status: TopicStatus;
   scores: {
     freshness: number;
@@ -73,12 +74,67 @@ export type Template = {
   workspaceId: string;
   name: string;
   templateType: "story" | "square" | "carousel" | "text_fact";
+  layoutLabel?: string;
+  headlinePlacement?: string;
+  subheadlinePlacement?: string;
+  backgroundStyle?: string;
   width: number;
   height: number;
   isDefault: boolean;
   accentColor: string;
   headlineLimit: number;
   notes: string;
+  config?: TemplateRenderConfig;
+};
+
+export type TemplateRenderConfig = {
+  background: {
+    overlayOpacity: number;
+    overlayStartColor?: string;
+    overlayEndColor?: string;
+    focalPoint?: { x: number; y: number };
+  };
+  logo?: {
+    x: number;
+    y: number;
+    width: number;
+  };
+  headline: {
+    x: number;
+    y: number;
+    width: number;
+    fontSize: number;
+    rotation: number;
+    paddingX: number;
+    paddingY: number;
+    backgroundColor: string;
+    color: string;
+    radius?: number;
+  };
+  subheadline: {
+    x: number;
+    y: number;
+    width: number;
+    fontSize: number;
+    color: string;
+    paddingX?: number;
+    paddingY?: number;
+    backgroundColor?: string;
+    radius?: number;
+  };
+  emphasis: {
+    color: string;
+    keywords: string[];
+    mode?: "keywords" | "every_fifth" | "none";
+  };
+  insetImage?: {
+    x: number;
+    y: number;
+    size: number;
+    borderWidth: number;
+    borderColor: string;
+    cornerRadius?: number;
+  };
 };
 
 export type PublishJob = {
@@ -128,6 +184,7 @@ export type NormalizedTopicCandidate = {
   snippet?: string;
   publishedAt?: string;
   imageUrl?: string;
+  insetImageUrl?: string;
   author?: string;
   language?: string;
   rawCategory?: string;

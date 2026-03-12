@@ -5,7 +5,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace web",
+    "dev": "cd apps/web && node ./node_modules/next/dist/bin/next dev",
     "build": "npm run build --workspace web",
     "lint": "npm run lint --workspace web",
     "supabase:migration:print": "cat supabase/migrations/20260310143000_initial_schema.sql",

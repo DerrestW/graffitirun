@@ -8,8 +8,10 @@ import type {
   TemplateRenderingService,
   TopicScoringService,
   TrendProvider,
-} from "./contracts.ts";
-import { drafts, normalizedAssetCandidates, normalizedTopicCandidates, topics } from "../mock-data.ts";
+} from "./contracts";
+import { drafts, normalizedAssetCandidates, normalizedTopicCandidates, topics } from "../mock-data";
+import { getMetaIntegrationStatus } from "../integrations/meta";
+import { renderTemplatePreview } from "../rendering/template-preview";
 
 export const mockFixtureTrendProvider: TrendProvider = {
   providerKey: "mock_fixture",
@@ -69,9 +71,11 @@ export const mockDraftGenerationService: DraftGenerationService = {
 
 export const mockTemplateRenderingService: TemplateRenderingService = {
   async render(template, draft) {
+    const preview = renderTemplatePreview(template, draft);
+
     return {
-      assetPath: draft.renderedAssetPath,
-      previewPath: `/previews/${template.id}-${draft.id}.png`,
+      assetPath: preview.previewUrl,
+      previewPath: preview.previewUrl,
     };
   },
 };
@@ -79,10 +83,31 @@ export const mockTemplateRenderingService: TemplateRenderingService = {
 export const facebookPublishingAdapter: PublishingAdapter = {
   channelKey: "facebook_page",
   async publish(draft) {
+    const meta = getMetaIntegrationStatus();
+
+    if (!meta.publishingReady) {
+      return {
+        accepted: true,
+        externalPostId: `stub_${draft.id}`,
+        message: "Meta connector not configured yet. Local stub completed and the adapter is ready for Page token wiring.",
+      };
+    }
+
     return {
       accepted: true,
       externalPostId: `stub_${draft.id}`,
-      message: "Facebook adapter executed in stub mode. Replace with live credentials to publish for real.",
+      message: "Meta connector configuration detected. Replace the stub publish call with a public asset upload flow to publish for real.",
+    };
+  },
+};
+
+export const xPublishingAdapter: PublishingAdapter = {
+  channelKey: "x_account",
+  async publish(draft) {
+    return {
+      accepted: true,
+      externalPostId: `x_stub_${draft.id}`,
+      message: "X connector stub completed. Replace this adapter with real media upload and post publishing once credentials are wired.",
     };
   },
 };

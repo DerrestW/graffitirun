@@ -9,6 +9,7 @@ import type {
   WorkspaceContext,
 } from "@/lib/domain";
 import type { Database, Json } from "@/lib/db/database.types";
+import { templates as fallbackTemplates } from "@/lib/mock-data";
 
 type WorkspaceRow = Database["public"]["Tables"]["workspaces"]["Row"];
 type WorkspaceSettingsRow = Database["public"]["Tables"]["workspace_settings"]["Row"];
@@ -83,17 +84,26 @@ export function mapTopic(row: TopicRow, checks: TopicCheckRow[]): Topic {
 }
 
 export function mapTemplate(row: TemplateRow): Template {
+  const fallbackTemplate =
+    fallbackTemplates.find((template) => template.name === row.name) ??
+    fallbackTemplates.find((template) => template.templateType === row.template_type);
+
   return {
     id: row.id,
     workspaceId: row.workspace_id,
     name: row.name,
     templateType: row.template_type,
+    layoutLabel: fallbackTemplate?.layoutLabel,
+    headlinePlacement: fallbackTemplate?.headlinePlacement,
+    subheadlinePlacement: fallbackTemplate?.subheadlinePlacement,
+    backgroundStyle: fallbackTemplate?.backgroundStyle,
     width: row.width,
     height: row.height,
     isDefault: row.is_default,
     accentColor: String(getTemplateConfigValue(row.config_json, "accentColor", "#ee6c4d")),
     headlineLimit: Number(getTemplateConfigValue(row.config_json, "headlineLimit", 48)),
     notes: String(getTemplateConfigValue(row.config_json, "notes", "Workspace-scoped template.")),
+    config: fallbackTemplate?.config,
   };
 }
 

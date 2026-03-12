@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <defs>
+    <linearGradient id="forest" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1f2d1f"/>
+      <stop offset="45%" stop-color="#35543d"/>
+      <stop offset="100%" stop-color="#8ea37a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="1200" fill="url(#forest)"/>
+  <ellipse cx="580" cy="620" rx="260" ry="340" fill="#9d744d"/>
+  <ellipse cx="520" cy="590" rx="76" ry="110" fill="#f7e4c5"/>
+  <ellipse cx="670" cy="590" rx="76" ry="110" fill="#f7e4c5"/>
+  <circle cx="518" cy="585" r="26" fill="#111"/>
+  <circle cx="672" cy="585" r="26" fill="#111"/>
+  <path d="M590 650l40 0-20 40z" fill="#f0b13d"/>
+  <path d="M280 860c170-70 280-94 422-84s260 28 498 4v420H0Z" fill="#253320"/>
+</svg>

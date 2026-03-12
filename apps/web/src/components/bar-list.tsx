@@ -11,12 +11,12 @@ export function BarList({ items, accent = "var(--accent)" }: BarListProps) {
       {items.map((item) => (
         <div key={item.label}>
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-[color:var(--foreground)]">{item.label}</span>
+            <span className="font-medium text-[color:var(--foreground)]">{item.label}</span>
             <span className="font-medium text-[color:var(--ink-soft)]">{item.value}</span>
           </div>
-          <div className="h-2 rounded-full bg-white/70">
+          <div className="h-2.5 rounded-full bg-white/70">
             <div
-              className="h-2 rounded-full"
+              className="h-2.5 rounded-full shadow-[0_8px_18px_rgba(20,56,74,0.2)]"
               style={{
                 width: `${(item.value / max) * 100}%`,
                 background: accent,

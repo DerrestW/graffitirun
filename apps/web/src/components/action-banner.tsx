@@ -35,6 +35,30 @@ const bannerMap: Record<string, { tone: string; message: string }> = {
     tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
     message: "Publish job executed.",
   },
+  sync_completed: {
+    tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    message: "Meta insights synced.",
+  },
+  sync_failed: {
+    tone: "border-rose-200 bg-rose-50 text-rose-800",
+    message: "Meta insights sync failed.",
+  },
+  facebook_connected: {
+    tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    message: "Facebook Page connected.",
+  },
+  facebook_pick_page: {
+    tone: "border-sky-200 bg-sky-50 text-sky-800",
+    message: "Choose which Facebook Page this workspace should use.",
+  },
+  facebook_no_pages: {
+    tone: "border-amber-200 bg-amber-50 text-amber-800",
+    message: "Meta login worked, but no manageable Facebook Pages were returned.",
+  },
+  facebook_oauth_failed: {
+    tone: "border-rose-200 bg-rose-50 text-rose-800",
+    message: "Facebook connection failed. Check the Meta app callback URL and permissions, then try again.",
+  },
   unauthorized: {
     tone: "border-rose-200 bg-rose-50 text-rose-800",
     message: "Your role is not allowed to perform that action.",

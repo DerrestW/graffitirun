@@ -4,7 +4,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import type { Draft, Template, Topic } from "@/lib/domain";
-import { brandingSettingsView } from "@/lib/settings";
 
 type RenderInputs = {
   draft: Draft;
@@ -19,50 +18,21 @@ type RenderInputs = {
 };
 
 const bundledFontPath = path.join(process.cwd(), "public", "fonts", "NotoSans-Variable.ttf");
-const interFontPath = path.join(process.cwd(), "public", "fonts", "Inter-Regular.ttf");
-const nunitoFontPath = path.join(process.cwd(), "public", "fonts", "NunitoSans-Regular.ttf");
-function resolveBrandFonts(overrides?: RenderInputs["brandFonts"], useBrandFonts = false) {
-  if (!useBrandFonts) {
-    return {
-      heading: "Noto Sans",
-      subheading: "Noto Sans",
-      body: "Noto Sans",
-    } as const;
-  }
-
-  const normalize = (value?: string | null) => {
-    const v = value?.trim();
-    if (!v) return "Noto Sans";
-    if (["Helvetica", "Helvetica Neue"].includes(v)) return "Inter";
-    if (["Avenir", "Avenir Next"].includes(v)) return "Nunito Sans";
-    return v;
-  };
-
+function resolveBrandFonts() {
   return {
-    heading: normalize(overrides?.heading ?? brandingSettingsView.headingFont),
-    subheading: normalize(overrides?.subheading ?? brandingSettingsView.subheadingFont),
-    body: normalize(overrides?.body ?? brandingSettingsView.bodyFont),
+    // Force render-safe server fonts until custom brand font assets are wired correctly.
+    heading: "Noto Sans",
+    subheading: "Noto Sans",
+    body: "Noto Sans",
   } as const;
 }
 
 function resolveFontOptions(fontFamily: string, fontSize: number) {
-  const family = fontFamily.trim() || "Noto Sans";
-  const fontfile = family.startsWith("Inter")
-    ? interFontPath
-    : family.startsWith("Nunito Sans")
-      ? nunitoFontPath
-      : bundledFontPath;
   return {
-    font: family,
-    fontfile,
-    fontSize: Math.max(Math.round(fontSize), 16),
+    font: fontFamily.trim() || "Noto Sans",
+    fontfile: bundledFontPath,
+    dpi: Math.max(Math.round(fontSize * 6), 72),
   } as const;
-}
-
-async function buildEmbeddedFontFace(fontFamily: string, fontfile: string, name: string) {
-  const fontBuffer = await fs.readFile(fontfile);
-  const mime = fontfile.endsWith(".otf") ? "font/otf" : "font/ttf";
-  return `@font-face { font-family: '${name}'; src: url(data:${mime};base64,${fontBuffer.toString("base64")}) format('truetype'); } .${name} { font-family: '${name}'; }`;
 }
 
 function escapeXml(value: string) {
@@ -237,24 +207,27 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
   const lineLength = template.templateType === "story" ? 26 : 30;
   const lines = wrapText(draft.selectedHeadline, lineLength).slice(0, 2);
   const lineHeight = headline.fontSize * 1.08;
-  const textHeight = lines.length * lineHeight;
-  const stripHeight = textHeight + headline.paddingY * 2;
-  const { font, fontfile, fontSize } = resolveFontOptions(fontFamily, headline.fontSize);
-  const fontClass = "headlineFont";
-  const fontFace = await buildEmbeddedFontFace(font, fontfile, fontClass);
-  const textSvg = Buffer.from(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="${headline.width}" height="${Math.ceil(stripHeight)}" viewBox="0 0 ${headline.width} ${Math.ceil(stripHeight)}">
-      <style>${fontFace}</style>
-      <g class="${fontClass}" fill="${headline.color}" font-size="${fontSize}" font-weight="700">
-        ${lines
-          .map(
-            (line, index) =>
-              `<text x="${headline.paddingX}" y="${headline.paddingY + fontSize + index * lineHeight}">${escapeXml(line)}</text>`,
-          )
-          .join("")}
-      </g>
-    </svg>
-  `);
+  const { font, fontfile, dpi } = resolveFontOptions(fontFamily, headline.fontSize);
+  const textBuffer = await sharp({
+    text: {
+      text: `<span foreground="${headline.color}">${escapeXml(lines.join("\n"))}</span>`,
+      width: Math.max(headline.width - headline.paddingX * 2, 100),
+      rgba: true,
+      align: "left",
+      wrap: "word-char",
+      font,
+      fontfile,
+      dpi,
+      spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
+    },
+  })
+    .png()
+    .toBuffer();
+  const textMeta = await sharp(textBuffer).metadata();
+  const stripHeight = Math.max(
+    Math.ceil((textMeta.height ?? lines.length * lineHeight) + headline.paddingY * 2),
+    Math.ceil(lines.length * lineHeight + headline.paddingY * 2),
+  );
 
   const strip = await sharp({
     create: {
@@ -273,7 +246,9 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
         `),
       },
       {
-        input: textSvg,
+        input: textBuffer,
+        top: headline.paddingY,
+        left: headline.paddingX,
       },
     ])
     .png()
@@ -316,48 +291,53 @@ async function buildSubheadlineOverlay(
   const lineHeight = subheadline.fontSize * 1.08;
   const paddingX = subheadline.paddingX ?? 0;
   const paddingY = subheadline.paddingY ?? 0;
-  const height = lines.length * lineHeight + 24 + paddingY * 2;
   const keywordSet = new Set(emphasis.keywords.map((word) => word.toLowerCase()));
   const mode = emphasis.mode ?? "keywords";
   const emphasisColor = emphasis.color;
   const subheadlineColor = subheadline.color;
   const backgroundColor = subheadline.backgroundColor;
   const radius = subheadline.radius ?? 18;
-  const { font, fontfile, fontSize } = resolveFontOptions(fontFamily, subheadline.fontSize);
-  const fontClass = "subheadlineFont";
-  const fontFace = await buildEmbeddedFontFace(font, fontfile, fontClass);
-
-  const textSvg = Buffer.from(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="${subheadline.width}" height="${Math.ceil(height)}" viewBox="0 0 ${subheadline.width} ${Math.ceil(height)}">
-      <style>${fontFace}</style>
-      <g class="${fontClass}" font-size="${fontSize}" font-weight="600">
-        ${lines
-          .map((line, lineIndex) => {
-            const words = line.split(" ").filter(Boolean);
-            let currentX = paddingX;
-            const y = paddingY + fontSize + lineIndex * lineHeight;
-            const segments = words
-              .map((word, wordIndex) => {
-                const cleaned = word.replace(/[^a-z0-9]/gi, "").toLowerCase();
-                const fill =
-                  mode === "every_fifth"
-                    ? (wordIndex + 1) % 5 === 0
-                      ? emphasisColor
-                      : subheadlineColor
-                    : keywordSet.has(cleaned)
-                      ? emphasisColor
-                      : subheadlineColor;
-                const segment = `<tspan x="${currentX}" y="${y}" fill="${fill}">${escapeXml(word)}</tspan>`;
-                currentX += Math.max(word.length * fontSize * 0.58, fontSize * 0.5) + fontSize * 0.28;
-                return segment;
-              })
-              .join("");
-            return `<text>${segments}</text>`;
-          })
-          .join("")}
-      </g>
-    </svg>
-  `);
+  const { font, fontfile, dpi } = resolveFontOptions(fontFamily, subheadline.fontSize);
+  const textMarkup = `<span>${lines
+    .map((line) =>
+      line
+        .split(" ")
+        .map((word, index) => {
+          const cleaned = word.replace(/[^a-z0-9]/gi, "").toLowerCase();
+          const fill =
+            mode === "every_fifth"
+              ? (index + 1) % 5 === 0
+                ? emphasisColor
+                : subheadlineColor
+              : keywordSet.has(cleaned)
+                ? emphasisColor
+                : subheadlineColor;
+          return `<span foreground="${fill}">${escapeXml(word)}</span>`;
+        })
+        .join(" "),
+    )
+    .join("\n")}</span>`;
+  const textBuffer = await sharp({
+    text: {
+      text: textMarkup,
+      width: Math.max(subheadline.width - paddingX * 2, 120),
+      rgba: true,
+      align: "left",
+      wrap: "word-char",
+      font,
+      fontfile,
+      dpi,
+      spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
+    },
+  })
+    .ensureAlpha()
+    .png()
+    .toBuffer();
+  const textMeta = await sharp(textBuffer).metadata();
+  const height = Math.max(
+    Math.ceil((textMeta.height ?? lines.length * lineHeight) + paddingY * 2),
+    Math.ceil(lines.length * lineHeight + 24 + paddingY * 2),
+  );
 
   const composites: sharp.OverlayOptions[] = [];
   if (backgroundColor) {
@@ -370,7 +350,9 @@ async function buildSubheadlineOverlay(
     });
   }
   composites.push({
-    input: textSvg,
+    input: textBuffer,
+    top: paddingY,
+    left: paddingX,
   });
 
   const overlay = await sharp({
@@ -397,12 +379,12 @@ async function buildSubheadlineOverlay(
   };
 }
 
-export async function renderDraftPng({ draft, topic, template, brandFonts, useBrandFonts }: RenderInputs) {
+export async function renderDraftPng({ draft, topic, template }: RenderInputs) {
   const width = template.width;
   const height = template.height;
   const backgroundInput = (await loadImageBuffer(topic.imageUrl)) ?? Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#1d2830"/></svg>`);
   const background = await sharp(backgroundInput).resize(width, height, { fit: "cover", position: "centre" }).png().toBuffer();
-  const fonts = resolveBrandFonts(brandFonts, useBrandFonts);
+  const fonts = resolveBrandFonts();
 
   const headlineOverlay = await buildHeadlineStrip(template, draft, fonts.heading);
   const layers = await Promise.all([

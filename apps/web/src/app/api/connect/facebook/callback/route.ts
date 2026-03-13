@@ -37,14 +37,15 @@ export async function GET(request: Request) {
     const envBackedPages =
       resolvedPages.length > 0
         ? resolvedPages
-        : fallbackConfig.pageId && fallbackConfig.accessToken
+        : fallbackConfig.pageId
           ? [
               {
                 id: fallbackConfig.pageId,
                 name: "Configured Facebook Page",
-                accessToken: fallbackConfig.accessToken,
+                accessToken: userToken,
                 tasks: ["MANAGE", "ANALYZE", "CREATE_CONTENT"],
-              },
+                source: "oauth_user" as const,
+              } satisfies MetaPageOption,
             ]
           : [];
 

@@ -9,13 +9,14 @@ export type MetaPageOption = {
   name: string;
   accessToken: string;
   tasks: string[];
+  source?: "oauth" | "oauth_user" | "env";
 };
 
 export type MetaConnection = {
   pageId: string;
   accessToken: string;
   pageName?: string;
-  source: "env" | "channel";
+  source: "env" | "channel" | "oauth_user";
 };
 
 export function getMetaIntegrationStatus() {
@@ -89,6 +90,7 @@ export async function getStoredFacebookConnection(): Promise<MetaConnection | nu
   const metadata = row.channel_metadata_json as Record<string, unknown>;
   const pageId = typeof metadata.page_id === "string" ? metadata.page_id : "";
   const pageName = typeof metadata.page_name === "string" ? metadata.page_name : row.display_name;
+  const source = typeof metadata.source === "string" ? metadata.source : "channel";
 
   if (!pageId) {
     return null;
@@ -98,14 +100,18 @@ export async function getStoredFacebookConnection(): Promise<MetaConnection | nu
     pageId,
     accessToken: row.access_token_encrypted,
     pageName,
-    source: "channel",
+    source: source === "oauth_user" ? "oauth_user" : "channel",
   };
 }
 
 export async function resolveMetaConnection(): Promise<MetaConnection | null> {
+  const stored = await getStoredFacebookConnection();
+  if (stored?.source === "oauth_user") {
+    return stored;
+  }
+
   const env = getMetaIntegrationConfig();
   if (!env.pageId || !env.accessToken) {
-    const stored = await getStoredFacebookConnection();
     return stored;
   }
 
@@ -218,6 +224,7 @@ export async function fetchFacebookPages(userAccessToken: string): Promise<MetaP
       name: typeof row.name === "string" ? row.name : "Facebook Page",
       accessToken: typeof row.access_token === "string" ? row.access_token : "",
       tasks: Array.isArray(row.tasks) ? row.tasks.filter((item): item is string => typeof item === "string") : [],
+      source: "oauth" as const,
     }))
     .filter((row) => row.id && row.accessToken);
 }
@@ -255,6 +262,7 @@ export async function fetchFacebookPageById(pageId: string, userAccessToken: str
     name,
     accessToken,
     tasks,
+    source: "oauth",
   };
 }
 
@@ -284,7 +292,7 @@ export async function connectFacebookPage(page: MetaPageOption) {
       page_id: page.id,
       page_name: page.name,
       tasks: page.tasks,
-      source: "oauth",
+      source: page.source ?? "oauth",
     },
     status: "connected",
   };

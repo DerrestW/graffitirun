@@ -201,6 +201,42 @@ export async function fetchFacebookPages(userAccessToken: string): Promise<MetaP
     .filter((row) => row.id && row.accessToken);
 }
 
+export async function fetchFacebookPageById(pageId: string, userAccessToken: string): Promise<MetaPageOption | null> {
+  if (!pageId) {
+    return null;
+  }
+
+  const response = await fetch(
+    createGraphUrl(pageId, {
+      access_token: userAccessToken,
+      fields: "id,name,access_token,tasks",
+    }).toString(),
+    { method: "GET", cache: "no-store" },
+  );
+  const payload = await parseGraphResponse(response);
+
+  if (!response.ok || !payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const row = payload as Record<string, unknown>;
+  const id = typeof row.id === "string" ? row.id : "";
+  const name = typeof row.name === "string" ? row.name : "Facebook Page";
+  const accessToken = typeof row.access_token === "string" ? row.access_token : "";
+  const tasks = Array.isArray(row.tasks) ? row.tasks.filter((item): item is string => typeof item === "string") : [];
+
+  if (!id || !accessToken) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    accessToken,
+    tasks,
+  };
+}
+
 export async function connectFacebookPage(page: MetaPageOption) {
   const supabase = createAdminSupabaseClient();
   if (!supabase) {

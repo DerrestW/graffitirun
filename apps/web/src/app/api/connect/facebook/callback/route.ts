@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import {
   connectFacebookPage,
   exchangeFacebookCodeForUserToken,
+  fetchFacebookPageById,
   fetchFacebookPages,
+  getMetaIntegrationConfig,
   getPublicAppOrigin,
   type MetaPageOption,
 } from "@/lib/integrations/meta";
@@ -22,15 +24,22 @@ export async function GET(request: Request) {
     const redirectUri = `${origin}/api/connect/facebook/callback`;
     const userToken = await exchangeFacebookCodeForUserToken({ code, redirectUri });
     const pages = await fetchFacebookPages(userToken);
+    const fallbackPageId = getMetaIntegrationConfig().pageId;
+    const resolvedPages =
+      pages.length > 0
+        ? pages
+        : fallbackPageId
+          ? [await fetchFacebookPageById(fallbackPageId, userToken)].filter((page): page is MetaPageOption => Boolean(page))
+          : [];
 
-    if (pages.length === 0) {
+    if (resolvedPages.length === 0) {
       const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_no_pages`);
       response.cookies.delete("gr_fb_oauth_state");
       return response;
     }
 
-    if (pages.length === 1) {
-      await connectFacebookPage(pages[0]);
+    if (resolvedPages.length === 1) {
+      await connectFacebookPage(resolvedPages[0]);
       const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_connected`);
       response.cookies.delete("gr_fb_oauth_state");
       response.cookies.delete("gr_fb_pages");
@@ -38,7 +47,7 @@ export async function GET(request: Request) {
     }
 
     const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_pick_page`);
-    response.cookies.set("gr_fb_pages", encodePagesCookie(pages), {
+    response.cookies.set("gr_fb_pages", encodePagesCookie(resolvedPages), {
       httpOnly: true,
       sameSite: "lax",
       secure: origin.startsWith("https://"),

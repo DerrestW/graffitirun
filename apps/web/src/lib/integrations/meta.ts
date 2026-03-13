@@ -149,7 +149,10 @@ export function buildFacebookOauthUrl({
   url.searchParams.set("redirect_uri", `${origin}/api/connect/facebook/callback`);
   url.searchParams.set("state", state);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,read_insights");
+  url.searchParams.set(
+    "scope",
+    "pages_show_list,pages_manage_posts,pages_read_engagement,read_insights,pages_manage_metadata,pages_manage_engagement,business_management",
+  );
 
   return url.toString();
 }

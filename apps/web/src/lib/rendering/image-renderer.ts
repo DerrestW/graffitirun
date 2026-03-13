@@ -27,10 +27,20 @@ function resolveBrandFonts(overrides?: RenderInputs["brandFonts"], useBrandFonts
       body: "Noto Sans",
     } as const;
   }
+
+  const normalize = (value?: string | null) => {
+    const v = value?.trim();
+    if (!v) return "Noto Sans";
+    // Map common brand picks to safe stacks; falls back to bundled Noto for rendering reliability.
+    if (["Helvetica", "Helvetica Neue"].includes(v)) return "Helvetica Neue, Arial, Noto Sans";
+    if (["Avenir", "Avenir Next"].includes(v)) return "Avenir Next, \"Nunito Sans\", Noto Sans";
+    return `${v}, Noto Sans`;
+  };
+
   return {
-    heading: overrides?.heading?.trim() || brandingSettingsView.headingFont || "Noto Sans",
-    subheading: overrides?.subheading?.trim() || brandingSettingsView.subheadingFont || "Noto Sans",
-    body: overrides?.body?.trim() || brandingSettingsView.bodyFont || "Noto Sans",
+    heading: normalize(overrides?.heading ?? brandingSettingsView.headingFont),
+    subheading: normalize(overrides?.subheading ?? brandingSettingsView.subheadingFont),
+    body: normalize(overrides?.body ?? brandingSettingsView.bodyFont),
   } as const;
 }
 
@@ -40,7 +50,7 @@ function resolveFontOptions(fontFamily: string, fontSize: number) {
   return {
     font: `${family} ${size}`,
     // Keep bundled Noto Sans available as a fallback without overriding custom families.
-    fontfile: family === "Noto Sans" ? bundledFontPath : undefined,
+    fontfile: bundledFontPath,
   } as const;
 }
 

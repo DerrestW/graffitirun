@@ -47,15 +47,15 @@ function resolveBrandFonts(overrides?: RenderInputs["brandFonts"], useBrandFonts
 
 function resolveFontOptions(fontFamily: string, fontSize: number) {
   const family = fontFamily.trim() || "Noto Sans";
-  const size = Math.max(Math.round(fontSize), 16);
   const fontfile = family.startsWith("Inter")
     ? interFontPath
     : family.startsWith("Nunito Sans")
       ? nunitoFontPath
       : bundledFontPath;
   return {
-    font: `${family} ${size}`,
+    font: family,
     fontfile,
+    dpi: Math.max(Math.round(fontSize * 6), 72),
   } as const;
 }
 
@@ -214,7 +214,15 @@ function buildInsetOverlay(template: Template, topic: Topic) {
   });
 }
 
-async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: string) {
+type HeadlineOverlay = {
+  input: Buffer;
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+};
+
+async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: string): Promise<HeadlineOverlay | null> {
   const headline = template.config?.headline;
   if (!headline) {
     return null;
@@ -225,7 +233,7 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
   const lineHeight = headline.fontSize * 1.08;
   const textHeight = lines.length * lineHeight;
   const stripHeight = textHeight + headline.paddingY * 2;
-  const { font, fontfile } = resolveFontOptions(fontFamily, headline.fontSize);
+  const { font, fontfile, dpi } = resolveFontOptions(fontFamily, headline.fontSize);
   const textBuffer = await sharp({
     text: {
       text: `<span foreground="${headline.color}">${escapeXml(lines.join("\n"))}</span>`,
@@ -236,6 +244,7 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
       wrap: "word-char",
       font,
       fontfile,
+      dpi,
       spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
     },
   })
@@ -274,17 +283,26 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
             background: { r: 0, g: 0, b: 0, alpha: 0 },
           })
           .png()
-          .toBuffer()
+          .toBuffer({ resolveWithObject: false })
       : strip;
+
+  const rotatedMeta = await sharp(rotated).metadata();
 
   return {
     input: rotated,
     top: headline.y,
     left: headline.x,
+    width: rotatedMeta.width ?? headline.width,
+    height: rotatedMeta.height ?? Math.ceil(stripHeight),
   };
 }
 
-async function buildSubheadlineOverlay(template: Template, draft: Draft, fontFamily: string) {
+async function buildSubheadlineOverlay(
+  template: Template,
+  draft: Draft,
+  fontFamily: string,
+  headlineOverlay?: HeadlineOverlay | null,
+) {
   const subheadline = template.config?.subheadline;
   const emphasis = template.config?.emphasis;
   if (!subheadline || !emphasis) {
@@ -302,7 +320,7 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft, fontFam
   const subheadlineColor = subheadline.color;
   const backgroundColor = subheadline.backgroundColor;
   const radius = subheadline.radius ?? 18;
-  const { font, fontfile } = resolveFontOptions(fontFamily, subheadline.fontSize);
+  const { font, fontfile, dpi } = resolveFontOptions(fontFamily, subheadline.fontSize);
 
   function renderLine(line: string) {
     const words = line.split(" ");
@@ -334,6 +352,7 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft, fontFam
       wrap: "word-char",
       font,
       fontfile,
+      dpi,
       spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
     },
   })
@@ -369,9 +388,14 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft, fontFam
     .png()
     .toBuffer();
 
+  const minimumTop =
+    headlineOverlay && subheadline.y < headlineOverlay.top + headlineOverlay.height
+      ? headlineOverlay.top + headlineOverlay.height + (template.templateType === "story" ? 28 : 22)
+      : subheadline.y;
+
   return {
     input: overlay,
-    top: subheadline.y,
+    top: minimumTop,
     left: subheadline.x,
   };
 }
@@ -383,6 +407,7 @@ export async function renderDraftPng({ draft, topic, template, brandFonts, useBr
   const background = await sharp(backgroundInput).resize(width, height, { fit: "cover", position: "centre" }).png().toBuffer();
   const fonts = resolveBrandFonts(brandFonts, useBrandFonts);
 
+  const headlineOverlay = await buildHeadlineStrip(template, draft, fonts.heading);
   const layers = await Promise.all([
     Promise.resolve({
       input: buildGradientOverlay(
@@ -397,8 +422,8 @@ export async function renderDraftPng({ draft, topic, template, brandFonts, useBr
     }),
     buildLogoOverlay(template),
     buildInsetOverlay(template, topic),
-    Promise.resolve(buildHeadlineStrip(template, draft, fonts.heading)),
-    Promise.resolve(buildSubheadlineOverlay(template, draft, fonts.subheading)),
+    Promise.resolve(headlineOverlay),
+    Promise.resolve(buildSubheadlineOverlay(template, draft, fonts.subheading, headlineOverlay)),
   ]);
 
   return sharp(background)

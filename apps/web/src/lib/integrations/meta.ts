@@ -16,7 +16,7 @@ export type MetaConnection = {
   pageId: string;
   accessToken: string;
   pageName?: string;
-  source: "env" | "channel" | "oauth_user";
+  source: "env" | "channel" | "oauth" | "oauth_user" | "manual";
 };
 
 export function getMetaIntegrationStatus() {
@@ -100,13 +100,16 @@ export async function getStoredFacebookConnection(): Promise<MetaConnection | nu
     pageId,
     accessToken: row.access_token_encrypted,
     pageName,
-    source: source === "oauth_user" ? "oauth_user" : "channel",
+    source:
+      source === "oauth_user" || source === "oauth" || source === "manual"
+        ? source
+        : "channel",
   };
 }
 
 export async function resolveMetaConnection(): Promise<MetaConnection | null> {
   const stored = await getStoredFacebookConnection();
-  if (stored?.source === "oauth_user") {
+  if (stored && stored.source !== "channel") {
     return stored;
   }
 

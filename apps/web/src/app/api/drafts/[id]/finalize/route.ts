@@ -96,7 +96,7 @@ export async function POST(request: Request, { params }: RouteProps) {
         subheading: body.subheadingFont,
         body: body.bodyFont,
       },
-      useBrandFonts: Boolean(body.useBrandFonts),
+      useBrandFonts: body.useBrandFonts !== false,
     });
     const jpeg = await sharp(png)
       .resize(template.width, template.height, { fit: "cover", position: "centre" })

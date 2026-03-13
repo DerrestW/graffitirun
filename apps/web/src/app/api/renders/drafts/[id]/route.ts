@@ -66,7 +66,7 @@ export async function GET(request: Request, { params }: RouteProps) {
       heading: searchParams.get("headingFont") ?? undefined,
       subheading: searchParams.get("subheadingFont") ?? undefined,
     };
-    const useBrandFonts = searchParams.get("useBrandFonts") === "true";
+    const useBrandFonts = searchParams.get("useBrandFonts") !== "false";
 
     const image = await renderDraftPng({ draft: overriddenDraft, topic: overriddenTopic, template: overriddenTemplate, brandFonts, useBrandFonts });
     const body =

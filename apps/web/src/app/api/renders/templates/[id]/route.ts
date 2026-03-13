@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: RouteProps) {
       heading: searchParams.get("headingFont") ?? undefined,
       subheading: searchParams.get("subheadingFont") ?? undefined,
     };
-    const useBrandFonts = searchParams.get("useBrandFonts") === "true";
+    const useBrandFonts = searchParams.get("useBrandFonts") !== "false";
 
     if (!template || !draft || !topic) {
       return NextResponse.json({ ok: false, error: "Template render inputs not found." }, { status: 404 });

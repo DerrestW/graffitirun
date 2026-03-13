@@ -4,14 +4,37 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import type { Draft, Template, Topic } from "@/lib/domain";
+import { brandingSettingsView } from "@/lib/settings";
 
 type RenderInputs = {
   draft: Draft;
   topic: Topic;
   template: Template;
+  brandFonts?: {
+    heading?: string | null;
+    subheading?: string | null;
+    body?: string | null;
+  };
 };
 
 const bundledFontPath = path.join(process.cwd(), "public", "fonts", "NotoSans-Variable.ttf");
+function resolveBrandFonts(overrides?: RenderInputs["brandFonts"]) {
+  return {
+    heading: overrides?.heading?.trim() || brandingSettingsView.headingFont || "Noto Sans",
+    subheading: overrides?.subheading?.trim() || brandingSettingsView.subheadingFont || "Noto Sans",
+    body: overrides?.body?.trim() || brandingSettingsView.bodyFont || "Noto Sans",
+  } as const;
+}
+
+function resolveFontOptions(fontFamily: string, fontSize: number) {
+  const family = fontFamily.trim() || "Noto Sans";
+  const size = Math.max(Math.round(fontSize), 16);
+  return {
+    font: `${family} ${size}`,
+    // Keep bundled Noto Sans available as a fallback without overriding custom families.
+    fontfile: family === "Noto Sans" ? bundledFontPath : undefined,
+  } as const;
+}
 
 function escapeXml(value: string) {
   return value
@@ -168,7 +191,7 @@ function buildInsetOverlay(template: Template, topic: Topic) {
   });
 }
 
-async function buildHeadlineStrip(template: Template, draft: Draft) {
+async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: string) {
   const headline = template.config?.headline;
   if (!headline) {
     return null;
@@ -179,6 +202,7 @@ async function buildHeadlineStrip(template: Template, draft: Draft) {
   const lineHeight = headline.fontSize * 1.08;
   const textHeight = lines.length * lineHeight;
   const stripHeight = textHeight + headline.paddingY * 2;
+  const { font, fontfile } = resolveFontOptions(fontFamily, headline.fontSize);
   const textBuffer = await sharp({
     text: {
       text: `<span foreground="${headline.color}">${escapeXml(lines.join("\n"))}</span>`,
@@ -187,8 +211,8 @@ async function buildHeadlineStrip(template: Template, draft: Draft) {
       rgba: true,
       align: "left",
       wrap: "word-char",
-      font: `Noto Sans ${Math.max(Math.round(headline.fontSize), 16)}`,
-      fontfile: bundledFontPath,
+      font,
+      fontfile,
       spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
     },
   })
@@ -237,7 +261,7 @@ async function buildHeadlineStrip(template: Template, draft: Draft) {
   };
 }
 
-async function buildSubheadlineOverlay(template: Template, draft: Draft) {
+async function buildSubheadlineOverlay(template: Template, draft: Draft, fontFamily: string) {
   const subheadline = template.config?.subheadline;
   const emphasis = template.config?.emphasis;
   if (!subheadline || !emphasis) {
@@ -255,6 +279,7 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft) {
   const subheadlineColor = subheadline.color;
   const backgroundColor = subheadline.backgroundColor;
   const radius = subheadline.radius ?? 18;
+  const { font, fontfile } = resolveFontOptions(fontFamily, subheadline.fontSize);
 
   function renderLine(line: string) {
     const words = line.split(" ");
@@ -284,8 +309,8 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft) {
       rgba: true,
       align: "left",
       wrap: "word-char",
-      font: `Noto Sans ${Math.max(Math.round(subheadline.fontSize), 16)}`,
-      fontfile: bundledFontPath,
+      font,
+      fontfile,
       spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
     },
   })
@@ -328,11 +353,12 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft) {
   };
 }
 
-export async function renderDraftPng({ draft, topic, template }: RenderInputs) {
+export async function renderDraftPng({ draft, topic, template, brandFonts }: RenderInputs) {
   const width = template.width;
   const height = template.height;
   const backgroundInput = (await loadImageBuffer(topic.imageUrl)) ?? Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#1d2830"/></svg>`);
   const background = await sharp(backgroundInput).resize(width, height, { fit: "cover", position: "centre" }).png().toBuffer();
+  const fonts = resolveBrandFonts(brandFonts);
 
   const layers = await Promise.all([
     Promise.resolve({
@@ -348,8 +374,8 @@ export async function renderDraftPng({ draft, topic, template }: RenderInputs) {
     }),
     buildLogoOverlay(template),
     buildInsetOverlay(template, topic),
-    Promise.resolve(buildHeadlineStrip(template, draft)),
-    Promise.resolve(buildSubheadlineOverlay(template, draft)),
+    Promise.resolve(buildHeadlineStrip(template, draft, fonts.heading)),
+    Promise.resolve(buildSubheadlineOverlay(template, draft, fonts.subheading)),
   ]);
 
   return sharp(background)

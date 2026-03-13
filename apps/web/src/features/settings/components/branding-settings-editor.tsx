@@ -2,8 +2,9 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { BrandingSettingsView } from "@/lib/settings";
+import { loadBrandingSettings, saveBrandingSettings } from "@/lib/branding-storage";
 
 type BrandingSettingsEditorProps = {
   initialSettings: BrandingSettingsView;
@@ -19,6 +20,18 @@ export function BrandingSettingsEditor({ initialSettings }: BrandingSettingsEdit
   const [bodyFont, setBodyFont] = useState(initialSettings.bodyFont);
   const [status, setStatus] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  // Hydrate from saved brand settings on the client.
+  useEffect(() => {
+    const hydrated = loadBrandingSettings(initialSettings);
+    setLogoUrl(hydrated.logoUrl);
+    setPrimaryColor(hydrated.primaryColor);
+    setSecondaryColor(hydrated.secondaryColor);
+    setAccentColor(hydrated.accentColor);
+    setHeadingFont(hydrated.headingFont);
+    setSubheadingFont(hydrated.subheadingFont);
+    setBodyFont(hydrated.bodyFont);
+  }, [initialSettings]);
 
   async function handleLogoUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -163,6 +176,24 @@ export function BrandingSettingsEditor({ initialSettings }: BrandingSettingsEdit
               className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[color:var(--foreground)]"
             >
               Reset preview
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                saveBrandingSettings({
+                  logoUrl,
+                  primaryColor,
+                  secondaryColor,
+                  accentColor,
+                  headingFont,
+                  subheadingFont,
+                  bodyFont,
+                });
+                setStatus("Branding saved for this browser. Studio renders will pick this up.");
+              }}
+              className="rounded-full bg-[color:var(--navy)] px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(15,23,42,0.22)]"
+            >
+              Save branding
             </button>
             {uploading ? (
               <span className="rounded-full bg-[color:var(--accent-soft)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">

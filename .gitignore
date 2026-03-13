@@ -7,3 +7,4 @@ apps/web/.env
 apps/web/public/uploads/*
 !apps/web/public/uploads/.gitkeep
 .DS_Store
+.vercel

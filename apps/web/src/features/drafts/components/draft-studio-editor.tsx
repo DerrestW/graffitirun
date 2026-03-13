@@ -11,6 +11,8 @@ import {
   normalizeCustomTemplate,
   type CustomTemplate,
 } from "@/features/templates/custom-template";
+import { loadBrandingSettings } from "@/lib/branding-storage";
+import { brandingSettingsView } from "@/lib/settings";
 
 type DraftStudioEditorProps = {
   draft: Draft;
@@ -38,6 +40,11 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
   const [assetStatus, setAssetStatus] = useState<string | null>(null);
   const [uploadingTarget, setUploadingTarget] = useState<"background" | "inset" | null>(null);
   const [finalizeState, setFinalizeState] = useState<"idle" | "saving" | "publishing">("idle");
+  const [brandFonts, setBrandFonts] = useState({
+    heading: brandingSettingsView.headingFont,
+    subheading: brandingSettingsView.subheadingFont,
+    body: brandingSettingsView.bodyFont,
+  });
 
   useEffect(() => {
     try {
@@ -47,6 +54,15 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     } catch {
       setCustomTemplates([]);
     }
+  }, []);
+
+  useEffect(() => {
+    const hydrated = loadBrandingSettings(brandingSettingsView);
+    setBrandFonts({
+      heading: hydrated.headingFont,
+      subheading: hydrated.subheadingFont,
+      body: hydrated.bodyFont,
+    });
   }, []);
 
   const allTemplates = useMemo(() => {
@@ -64,23 +80,36 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
   }, [activeTemplate]);
 
   const currentCaption = draft.captions[selectedCaption] ?? draft.captions[0];
-  const previewWidth = placement === "story" ? 360 : 560;
-  const previewHeight = placement === "story" ? 640 : 560;
-  const inset = activeTemplate.config?.insetImage;
+  const isVerticalTemplate = activeTemplate.height > activeTemplate.width;
+  const previewMaxWidth = placement === "story" || isVerticalTemplate ? 360 : 560;
   const currentBackgroundUrl = backgroundImageUrl.trim() || topic.imageUrl;
   const currentInsetUrl = (insetImageUrl.trim() || currentBackgroundUrl) ?? topic.imageUrl;
-  const hasBackgroundImage = currentBackgroundUrl.trim().length > 0;
-  const hasInsetImage = currentInsetUrl.trim().length > 0;
-  const renderUrl = buildRenderUrl({
+  const renderBaseUrl = buildRenderUrl({
     draftId: draft.id,
     headline,
     summary,
     hook,
+    headlineSize,
+    summarySize,
     backgroundImageUrl: currentBackgroundUrl,
     insetImageUrl: currentInsetUrl,
     templateId: activeTemplate.id,
     customTemplate: selectedTemplateId.startsWith("custom-") ? customTemplates.find((item) => item.id === selectedTemplateId) ?? null : null,
+    headingFont: brandFonts.heading,
+    subheadingFont: brandFonts.subheading,
   });
+  const previewImageUrl = `${renderBaseUrl}&format=jpeg&snapshot=${buildSnapshotKey({
+    headline,
+    summary,
+    hook,
+    headlineSize,
+    summarySize,
+    backgroundImageUrl: currentBackgroundUrl,
+    insetImageUrl: currentInsetUrl,
+    templateId: activeTemplate.id,
+    selectedTemplateId,
+    placement,
+  })}`;
   const captionExport = [captionText, currentCaption?.ctaText, currentCaption?.hashtagsText]
     .filter(Boolean)
     .join("\n\n");
@@ -127,7 +156,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
   }
 
   async function handleDownloadImage() {
-    const response = await fetch(renderUrl);
+    const response = await fetch(previewImageUrl, { cache: "no-store" });
     if (!response.ok) {
       setAssetStatus("Could not generate the downloadable image.");
       return;
@@ -137,7 +166,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     const objectUrl = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = objectUrl;
-    anchor.download = `${slugify(topic.title)}-${placement}.png`;
+    anchor.download = `${slugify(topic.title)}-${placement}.jpg`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -159,6 +188,8 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
           headline,
           summary,
           hook,
+          headlineSize,
+          summarySize,
           backgroundImageUrl: currentBackgroundUrl,
           insetImageUrl: currentInsetUrl,
           templateId: activeTemplate.id,
@@ -243,52 +274,12 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="rounded-[2rem] bg-[#10171c] p-4 shadow-[0_28px_80px_rgba(14,23,29,0.28)]">
-            <div className="mx-auto overflow-hidden rounded-[1.6rem] bg-black" style={{ width: previewWidth, maxWidth: "100%" }}>
-              <div className="relative" style={{ width: "100%", height: previewHeight }}>
-                {hasBackgroundImage ? (
-                  <img src={currentBackgroundUrl} alt={topic.title} className="absolute inset-0 h-full w-full object-cover" />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,#2d4452,#10171c_72%)] px-8 text-center">
-                    <div className="max-w-sm rounded-[1.5rem] border border-white/12 bg-white/8 px-6 py-5 text-white">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/62">Image needed</p>
-                      <p className="mt-3 text-lg font-semibold">This source did not expose a usable article image.</p>
-                      <p className="mt-3 text-sm leading-6 text-white/72">
-                        Upload your own image or paste a better image URL in the panel on the right.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-black/20 to-black/82" />
-                {activeTemplate.config?.logo ? (
-                  <div className="absolute right-4 top-4">
-                    <img src="/brand/graffiti-run-badge.svg" alt="Graffiti Run" className="h-auto w-[120px]" />
-                  </div>
-                ) : null}
-                {inset && hasInsetImage ? (
-                  <div className="absolute left-4 top-4 overflow-hidden rounded-full border-[5px] border-white shadow-[0_16px_40px_rgba(0,0,0,0.35)]" style={{ width: 132, height: 132 }}>
-                    <img src={currentInsetUrl} alt={`${topic.title} inset`} className="h-full w-full object-cover" />
-                  </div>
-                ) : null}
-                <div className="absolute inset-x-4 bottom-4">
-                  <div
-                    className="mb-3 inline-block max-w-[94%] -rotate-[3deg] rounded-[0.7rem] bg-white px-4 py-3 font-black text-black shadow-[0_12px_24px_rgba(0,0,0,0.28)]"
-                    style={{ fontSize: `${Math.max(28, headlineSize / (placement === "story" ? 2 : 2.1))}px`, lineHeight: 1.02 }}
-                  >
-                    {headline}
-                  </div>
-                  <div
-                    className="max-w-[94%] font-black text-white"
-                    style={{ fontSize: `${Math.max(24, summarySize / (placement === "story" ? 2.2 : 2.35))}px`, lineHeight: 1.04 }}
-                  >
-                    <HighlightText
-                      text={summary}
-                      keywords={activeTemplate.config?.emphasis.keywords ?? []}
-                      color={activeTemplate.config?.emphasis.color ?? "#ffd33d"}
-                      mode={activeTemplate.config?.emphasis.mode ?? "keywords"}
-                    />
-                  </div>
-                </div>
-              </div>
+            <div className="mx-auto overflow-hidden rounded-[1.6rem] bg-black" style={{ width: previewMaxWidth, maxWidth: "100%" }}>
+              <img
+                src={previewImageUrl}
+                alt={`${topic.title} preview`}
+                className="block h-auto w-full"
+              />
             </div>
             {placement === "feed" ? (
               <div className="mx-auto mt-4 max-w-[560px] rounded-[1.25rem] bg-white px-4 py-4 text-sm text-[color:var(--foreground)]">
@@ -566,27 +557,39 @@ function buildRenderUrl({
   headline,
   summary,
   hook,
+  headlineSize,
+  summarySize,
   backgroundImageUrl,
   insetImageUrl,
   templateId,
   customTemplate,
+  headingFont,
+  subheadingFont,
 }: {
   draftId: string;
   headline: string;
   summary: string;
   hook: string;
+  headlineSize: number;
+  summarySize: number;
   backgroundImageUrl: string;
   insetImageUrl: string;
   templateId: string;
   customTemplate: CustomTemplate | null;
+  headingFont: string;
+  subheadingFont: string;
 }) {
   const params = new URLSearchParams({
     headline,
     summary,
     hook,
+    headlineSize: String(headlineSize),
+    summarySize: String(summarySize),
     backgroundImageUrl,
     insetImageUrl,
     templateId,
+    headingFont,
+    subheadingFont,
   });
 
   if (customTemplate) {
@@ -604,31 +607,8 @@ function slugify(value: string) {
     .slice(0, 60);
 }
 
-function HighlightText({
-  text,
-  keywords,
-  color,
-  mode,
-}: {
-  text: string;
-  keywords: string[];
-  color: string;
-  mode: "keywords" | "every_fifth" | "none";
-}) {
-  const keywordSet = new Set(keywords.map((word) => word.toLowerCase()));
-  return (
-    <>
-      {text.split(" ").map((word, index) => {
-        const normalized = word.replace(/[^a-z0-9]/gi, "").toLowerCase();
-        const highlighted = mode === "every_fifth" ? (index + 1) % 5 === 0 : mode === "keywords" ? keywordSet.has(normalized) : false;
-
-        return (
-          <span key={`${word}-${index}`} style={{ color: highlighted ? color : undefined }}>
-            {index > 0 ? " " : ""}
-            {word}
-          </span>
-        );
-      })}
-    </>
-  );
+function buildSnapshotKey(input: Record<string, string | number>) {
+  return Object.entries(input)
+    .map(([key, value]) => `${key}:${value}`)
+    .join("|");
 }

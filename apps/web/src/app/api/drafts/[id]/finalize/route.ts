@@ -24,10 +24,15 @@ export async function POST(request: Request, { params }: RouteProps) {
       headline?: string;
       summary?: string;
       hook?: string;
+      headlineSize?: number;
+      summarySize?: number;
       backgroundImageUrl?: string;
       insetImageUrl?: string;
       templateId?: string;
       customTemplate?: Partial<CustomTemplate> | null;
+      headingFont?: string;
+      subheadingFont?: string;
+      bodyFont?: string;
     };
 
     const [draft, templates, topics] = await Promise.all([getDraftDetailsById(id), listTemplates(), listTopics()]);
@@ -64,10 +69,32 @@ export async function POST(request: Request, { params }: RouteProps) {
       insetImageUrl: String(body.insetImageUrl ?? topic.insetImageUrl ?? ""),
     };
 
+    const sizedTemplate = template.config
+      ? {
+          ...template,
+          config: {
+            ...template.config,
+            headline: {
+              ...template.config.headline,
+              fontSize: Number.isFinite(Number(body.headlineSize)) && Number(body.headlineSize) > 0 ? Number(body.headlineSize) : template.config.headline.fontSize,
+            },
+            subheadline: {
+              ...template.config.subheadline,
+              fontSize: Number.isFinite(Number(body.summarySize)) && Number(body.summarySize) > 0 ? Number(body.summarySize) : template.config.subheadline.fontSize,
+            },
+          },
+        }
+      : template;
+
     const png = await renderDraftPng({
       draft: finalizedDraft,
       topic: finalizedTopic,
-      template,
+      template: sizedTemplate,
+      brandFonts: {
+        heading: body.headingFont,
+        subheading: body.subheadingFont,
+        body: body.bodyFont,
+      },
     });
     const jpeg = await sharp(png)
       .resize(template.width, template.height, { fit: "cover", position: "centre" })

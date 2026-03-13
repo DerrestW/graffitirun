@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   connectFacebookPage,
   exchangeFacebookCodeForUserToken,
+  exchangeFacebookUserTokenForLongLivedToken,
   fetchFacebookPageById,
   fetchFacebookPages,
   getMetaIntegrationConfig,
@@ -22,7 +23,8 @@ export async function GET(request: Request) {
 
   try {
     const redirectUri = `${origin}/api/connect/facebook/callback`;
-    const userToken = await exchangeFacebookCodeForUserToken({ code, redirectUri });
+    const shortLivedUserToken = await exchangeFacebookCodeForUserToken({ code, redirectUri });
+    const userToken = await exchangeFacebookUserTokenForLongLivedToken(shortLivedUserToken).catch(() => shortLivedUserToken);
     const pages = await fetchFacebookPages(userToken);
     const fallbackConfig = getMetaIntegrationConfig();
     const fallbackPageId = fallbackConfig.pageId;

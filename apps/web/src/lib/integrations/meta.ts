@@ -173,6 +173,31 @@ export async function exchangeFacebookCodeForUserToken({
   return payload.access_token;
 }
 
+export async function exchangeFacebookUserTokenForLongLivedToken(userAccessToken: string) {
+  const { appId, appSecret, graphVersion } = getMetaIntegrationConfig();
+
+  if (!appId || !appSecret) {
+    throw new Error("Meta App ID or App Secret is missing.");
+  }
+
+  const url = new URL(`https://graph.facebook.com/${graphVersion}/oauth/access_token`);
+  url.searchParams.set("grant_type", "fb_exchange_token");
+  url.searchParams.set("client_id", appId);
+  url.searchParams.set("client_secret", appSecret);
+  url.searchParams.set("fb_exchange_token", userAccessToken);
+
+  const response = await fetch(url, { method: "GET", cache: "no-store" });
+  const payload = await parseGraphResponse(response);
+
+  if (!response.ok || typeof payload.access_token !== "string") {
+    const errorMessage =
+      typeof payload.error === "object" && payload.error && "message" in payload.error ? String(payload.error.message) : "Meta long-lived token exchange failed.";
+    throw new Error(errorMessage);
+  }
+
+  return payload.access_token;
+}
+
 export async function fetchFacebookPages(userAccessToken: string): Promise<MetaPageOption[]> {
   const response = await fetch(
     createGraphUrl("me/accounts", {

@@ -311,6 +311,44 @@ export async function connectFacebookPage(page: MetaPageOption) {
   return insertedRow.id;
 }
 
+async function resolveFacebookAccessContext(connection?: MetaConnection | null) {
+  const activeConnection = connection ?? (await resolveMetaConnection());
+  const pageId = activeConnection?.pageId ?? "";
+  const accessToken = activeConnection?.accessToken ?? "";
+
+  if (!pageId || !accessToken || !activeConnection) {
+    throw new Error("Meta Page ID or Page access token is missing.");
+  }
+
+  if (activeConnection.source !== "oauth_user") {
+    return {
+      pageId,
+      accessToken,
+      connection: activeConnection,
+    };
+  }
+
+  const page = await fetchFacebookPageById(pageId, accessToken);
+  if (!page?.accessToken) {
+    throw new Error("The connected Facebook account can see the Page, but Meta did not return a publishable Page token.");
+  }
+
+  await connectFacebookPage({
+    ...page,
+    source: "oauth",
+  });
+
+  return {
+    pageId,
+    accessToken: page.accessToken,
+    connection: {
+      ...activeConnection,
+      accessToken: page.accessToken,
+      source: "channel" as const,
+    },
+  };
+}
+
 type MetaPublishInput = {
   caption: string;
   image: Buffer;
@@ -363,13 +401,7 @@ export async function publishPhotoToFacebookPage({
   fileName = "graffiti-run-post.png",
   connection,
 }: MetaPublishInput & { connection?: MetaConnection | null }): Promise<MetaPublishResult> {
-  const activeConnection = connection ?? (await resolveMetaConnection());
-  const pageId = activeConnection?.pageId ?? "";
-  const accessToken = activeConnection?.accessToken ?? "";
-
-  if (!pageId || !accessToken) {
-    throw new Error("Meta Page ID or Page access token is missing.");
-  }
+  const { pageId, accessToken } = await resolveFacebookAccessContext(connection);
 
   const formData = new FormData();
   formData.set("caption", caption);
@@ -419,12 +451,7 @@ async function getFacebookPermalink(objectId: string, accessToken: string) {
 }
 
 export async function fetchFacebookPostInsights(postId: string, connection?: MetaConnection | null): Promise<MetaInsightsResult> {
-  const activeConnection = connection ?? (await resolveMetaConnection());
-  const accessToken = activeConnection?.accessToken ?? "";
-
-  if (!accessToken) {
-    throw new Error("Meta Page access token is missing.");
-  }
+  const { accessToken } = await resolveFacebookAccessContext(connection);
 
   const fields =
     "permalink_url,shares,reactions.summary(true),comments.summary(true),insights.metric(post_impressions,post_impressions_unique,post_clicks)";

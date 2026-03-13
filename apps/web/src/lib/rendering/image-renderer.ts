@@ -179,18 +179,16 @@ async function buildHeadlineStrip(template: Template, draft: Draft) {
   const stripHeight = textHeight + headline.paddingY * 2;
   const textBuffer = await sharp({
     text: {
-      text: escapeXml(lines.join("\n")),
+      text: `<span foreground="${headline.color}">${escapeXml(lines.join("\n"))}</span>`,
       width: Math.max(headline.width - headline.paddingX * 2, 100),
       height: Math.max(Math.ceil(textHeight + 8), 40),
       rgba: true,
       align: "left",
       wrap: "word-char",
-      font: `sans ${Math.max(Math.round(headline.fontSize), 16)}`,
+      font: `sans bold ${Math.max(Math.round(headline.fontSize), 16)}`,
       spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
     },
   })
-    .ensureAlpha()
-    .tint(headline.color)
     .png()
     .toBuffer();
 
@@ -274,7 +272,7 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft) {
       .join(" ");
   }
 
-  const textMarkup = lines.map((line) => renderLine(line)).join("\n");
+  const textMarkup = `<span>${lines.map((line) => renderLine(line)).join("\n")}</span>`;
   const textBuffer = await sharp({
     text: {
       text: textMarkup,
@@ -283,7 +281,7 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft) {
       rgba: true,
       align: "left",
       wrap: "word-char",
-      font: `sans ${Math.max(Math.round(subheadline.fontSize), 16)}`,
+      font: `sans bold ${Math.max(Math.round(subheadline.fontSize), 16)}`,
       spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
     },
   })

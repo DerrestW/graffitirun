@@ -2,13 +2,21 @@ import "server-only";
 
 import { requirePermission } from "@/lib/authz";
 import { getPublishingAdapter } from "@/lib/integrations/publishing-adapters";
-import { fetchFacebookPostInsights, getMetaIntegrationStatus, publishPhotoToFacebookPage, type MetaConnection } from "@/lib/integrations/meta";
+import {
+  fetchFacebookPostInsights,
+  getMetaIntegrationStatus,
+  publishPhotoToFacebookPage,
+  resolveMetaConnection,
+  type MetaConnection,
+} from "@/lib/integrations/meta";
 import { mapTemplate, mapTopic } from "@/lib/db/mappers";
 import { renderDraftPng } from "@/lib/rendering/image-renderer";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { getWorkspaceContext } from "@/lib/db/queries";
 import type { Database } from "@/lib/db/database.types";
 import type { Draft, Template, Topic } from "@/lib/domain";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 const preferMockPublishing = process.env.NODE_ENV === "development";
 
@@ -98,13 +106,15 @@ export async function runPublishJob(jobId: string) {
       ? await supabase.from("publishing_channels").select("*").eq("workspace_id", workspace.workspaceId).eq("id", job.channel_id).maybeSingle()
       : { data: null };
   const channel = channelResult.data as Database["public"]["Tables"]["publishing_channels"]["Row"] | null;
+  const facebookConnection =
+    (channel?.channel_type ?? "facebook_page") === "facebook_page" ? (await resolveMetaConnection()) ?? getChannelMetaConnection(channel) : null;
   const result =
     (channel?.channel_type ?? "facebook_page") === "facebook_page" && meta.publishingReady
       ? await publishDraftToFacebook({
           draft,
           template,
           topic,
-          connection: getChannelMetaConnection(channel),
+          connection: facebookConnection,
         })
       : await getPublishingAdapter(channel?.channel_type ?? "facebook_page").publish(draft);
   const completedAt = new Date().toISOString();
@@ -197,7 +207,9 @@ async function publishDraftToFacebook({
   topic: Topic;
   connection?: MetaConnection | null;
 }) {
-  const image = await renderDraftPng({ draft, template, topic });
+  const image = draft.renderedAssetPath
+    ? await loadRenderedAsset(draft.renderedAssetPath).catch(() => renderDraftPng({ draft, template, topic }))
+    : await renderDraftPng({ draft, template, topic });
   const caption = [draft.captions[0]?.captionText ?? draft.selectedSummary, draft.captions[0]?.ctaText, draft.captions[0]?.hashtagsText]
     .filter(Boolean)
     .join("\n\n");
@@ -249,6 +261,15 @@ async function publishDraftToFacebook({
     insightsResponse,
     insights,
   };
+}
+
+async function loadRenderedAsset(renderedAssetPath: string) {
+  if (renderedAssetPath.startsWith("/")) {
+    const diskPath = path.join(process.cwd(), "public", renderedAssetPath.slice(1));
+    return fs.readFile(diskPath);
+  }
+
+  throw new Error("Unsupported rendered asset path.");
 }
 
 function getChannelMetaConnection(channel: Database["public"]["Tables"]["publishing_channels"]["Row"] | null): MetaConnection | null {

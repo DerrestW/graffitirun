@@ -9,7 +9,7 @@ type DraftReviewControlsProps = {
   disabled?: boolean;
 };
 
-type ActionState = "idle" | "commenting" | "approving" | "requesting" | "rejecting" | "scheduling";
+type ActionState = "idle" | "commenting" | "approving" | "requesting" | "rejecting" | "scheduling" | "publishing";
 
 export function DraftReviewControls({ draftId, defaultScheduledFor, disabled = false }: DraftReviewControlsProps) {
   const router = useRouter();
@@ -74,6 +74,14 @@ export function DraftReviewControls({ draftId, defaultScheduledFor, disabled = f
           <button
             type="button"
             disabled={disabled || actionState !== "idle"}
+            onClick={() => runAction(`/api/drafts/${draftId}/publish-now`, {}, "publish_executed", "publishing")}
+            className="w-full rounded-[1.25rem] bg-[color:var(--navy)] px-5 py-4 text-left text-sm font-semibold uppercase tracking-[0.2em] text-white disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {actionState === "publishing" ? "Publishing..." : "Publish now"}
+          </button>
+          <button
+            type="button"
+            disabled={disabled || actionState !== "idle"}
             onClick={() => runAction(`/api/drafts/${draftId}/status`, { action: "approve" }, "draft_approved", "approving")}
             className="w-full rounded-[1.25rem] bg-[color:var(--success)] px-5 py-4 text-left text-sm font-semibold uppercase tracking-[0.2em] text-white disabled:cursor-not-allowed disabled:opacity-70"
           >
@@ -97,7 +105,7 @@ export function DraftReviewControls({ draftId, defaultScheduledFor, disabled = f
           </button>
         </div>
         <div className="mt-5 rounded-[1.25rem] bg-[color:var(--accent-soft)] p-4 text-sm text-[color:var(--accent-strong)]">
-          Scheduling keeps the queue connector-ready without requiring live Facebook credentials locally.
+          Publish now approves the draft, queues it, and immediately runs the job. Use scheduling when you want it held for later.
         </div>
         <label className="mt-5 block text-sm font-medium text-[color:var(--foreground)]">
           Schedule publish job

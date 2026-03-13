@@ -9,13 +9,16 @@ export type MetaPageOption = {
   name: string;
   accessToken: string;
   tasks: string[];
+  source?: "oauth" | "oauth_user" | "env";
+  userAccessToken?: string;
 };
 
 export type MetaConnection = {
   pageId: string;
   accessToken: string;
   pageName?: string;
-  source: "env" | "channel";
+  userAccessToken?: string;
+  source: "env" | "channel" | "oauth" | "oauth_user" | "manual";
 };
 
 export function getMetaIntegrationStatus() {
@@ -89,6 +92,11 @@ export async function getStoredFacebookConnection(): Promise<MetaConnection | nu
   const metadata = row.channel_metadata_json as Record<string, unknown>;
   const pageId = typeof metadata.page_id === "string" ? metadata.page_id : "";
   const pageName = typeof metadata.page_name === "string" ? metadata.page_name : row.display_name;
+  const source = typeof metadata.source === "string" ? metadata.source : "channel";
+  const userAccessToken =
+    typeof metadata.user_access_token === "string"
+      ? metadata.user_access_token
+      : row.refresh_token_encrypted ?? undefined;
 
   if (!pageId) {
     return null;
@@ -98,19 +106,23 @@ export async function getStoredFacebookConnection(): Promise<MetaConnection | nu
     pageId,
     accessToken: row.access_token_encrypted,
     pageName,
-    source: "channel",
+    userAccessToken,
+    source:
+      source === "oauth_user" || source === "oauth" || source === "manual"
+        ? source
+        : "channel",
   };
 }
 
 export async function resolveMetaConnection(): Promise<MetaConnection | null> {
   const stored = await getStoredFacebookConnection();
-  if (stored) {
+  if (stored && stored.source !== "channel") {
     return stored;
   }
 
   const env = getMetaIntegrationConfig();
   if (!env.pageId || !env.accessToken) {
-    return null;
+    return stored;
   }
 
   return {
@@ -137,7 +149,10 @@ export function buildFacebookOauthUrl({
   url.searchParams.set("redirect_uri", `${origin}/api/connect/facebook/callback`);
   url.searchParams.set("state", state);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,read_insights");
+  url.searchParams.set(
+    "scope",
+    "pages_show_list,pages_manage_posts,pages_read_engagement,read_insights,pages_manage_metadata,pages_manage_engagement,business_management",
+  );
 
   return url.toString();
 }
@@ -173,6 +188,31 @@ export async function exchangeFacebookCodeForUserToken({
   return payload.access_token;
 }
 
+export async function exchangeFacebookUserTokenForLongLivedToken(userAccessToken: string) {
+  const { appId, appSecret, graphVersion } = getMetaIntegrationConfig();
+
+  if (!appId || !appSecret) {
+    throw new Error("Meta App ID or App Secret is missing.");
+  }
+
+  const url = new URL(`https://graph.facebook.com/${graphVersion}/oauth/access_token`);
+  url.searchParams.set("grant_type", "fb_exchange_token");
+  url.searchParams.set("client_id", appId);
+  url.searchParams.set("client_secret", appSecret);
+  url.searchParams.set("fb_exchange_token", userAccessToken);
+
+  const response = await fetch(url, { method: "GET", cache: "no-store" });
+  const payload = await parseGraphResponse(response);
+
+  if (!response.ok || typeof payload.access_token !== "string") {
+    const errorMessage =
+      typeof payload.error === "object" && payload.error && "message" in payload.error ? String(payload.error.message) : "Meta long-lived token exchange failed.";
+    throw new Error(errorMessage);
+  }
+
+  return payload.access_token;
+}
+
 export async function fetchFacebookPages(userAccessToken: string): Promise<MetaPageOption[]> {
   const response = await fetch(
     createGraphUrl("me/accounts", {
@@ -197,8 +237,46 @@ export async function fetchFacebookPages(userAccessToken: string): Promise<MetaP
       name: typeof row.name === "string" ? row.name : "Facebook Page",
       accessToken: typeof row.access_token === "string" ? row.access_token : "",
       tasks: Array.isArray(row.tasks) ? row.tasks.filter((item): item is string => typeof item === "string") : [],
+      source: "oauth" as const,
     }))
     .filter((row) => row.id && row.accessToken);
+}
+
+export async function fetchFacebookPageById(pageId: string, userAccessToken: string): Promise<MetaPageOption | null> {
+  if (!pageId) {
+    return null;
+  }
+
+  const response = await fetch(
+    createGraphUrl(pageId, {
+      access_token: userAccessToken,
+      fields: "id,name,access_token,tasks",
+    }).toString(),
+    { method: "GET", cache: "no-store" },
+  );
+  const payload = await parseGraphResponse(response);
+
+  if (!response.ok || !payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const row = payload as Record<string, unknown>;
+  const id = typeof row.id === "string" ? row.id : "";
+  const name = typeof row.name === "string" ? row.name : "Facebook Page";
+  const accessToken = typeof row.access_token === "string" ? row.access_token : "";
+  const tasks = Array.isArray(row.tasks) ? row.tasks.filter((item): item is string => typeof item === "string") : [];
+
+  if (!id || !accessToken) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    accessToken,
+    tasks,
+    source: "oauth",
+  };
 }
 
 export async function connectFacebookPage(page: MetaPageOption) {
@@ -222,12 +300,13 @@ export async function connectFacebookPage(page: MetaPageOption) {
     channel_type: "facebook_page",
     display_name: page.name,
     access_token_encrypted: page.accessToken,
-    refresh_token_encrypted: null,
+    refresh_token_encrypted: page.userAccessToken ?? null,
     channel_metadata_json: {
       page_id: page.id,
       page_name: page.name,
       tasks: page.tasks,
-      source: "oauth",
+      source: page.source ?? "oauth",
+      user_access_token: page.userAccessToken ?? null,
     },
     status: "connected",
   };
@@ -244,6 +323,67 @@ export async function connectFacebookPage(page: MetaPageOption) {
   }
 
   return insertedRow.id;
+}
+
+async function resolveFacebookAccessContext(connection?: MetaConnection | null) {
+  const activeConnection = connection ?? (await resolveMetaConnection());
+  const pageId = activeConnection?.pageId ?? "";
+  const accessToken = activeConnection?.accessToken ?? "";
+
+  if (!pageId || !accessToken || !activeConnection) {
+    throw new Error("Meta Page ID or Page access token is missing.");
+  }
+
+  if (activeConnection.source !== "oauth_user") {
+    if (activeConnection.userAccessToken) {
+      const page = await fetchFacebookPageById(pageId, activeConnection.userAccessToken);
+      if (page?.accessToken) {
+        await connectFacebookPage({
+          ...page,
+          source: "oauth",
+          userAccessToken: activeConnection.userAccessToken,
+        });
+
+        return {
+          pageId,
+          accessToken: page.accessToken,
+          connection: {
+            ...activeConnection,
+            accessToken: page.accessToken,
+            source: "oauth",
+          },
+        };
+      }
+    }
+
+    return {
+      pageId,
+      accessToken,
+      connection: activeConnection,
+    };
+  }
+
+  const page = await fetchFacebookPageById(pageId, accessToken);
+  if (!page?.accessToken) {
+    throw new Error("The connected Facebook account can see the Page, but Meta did not return a publishable Page token.");
+  }
+
+  await connectFacebookPage({
+    ...page,
+    source: "oauth",
+    userAccessToken: accessToken,
+  });
+
+  return {
+    pageId,
+    accessToken: page.accessToken,
+    connection: {
+      ...activeConnection,
+      accessToken: page.accessToken,
+      userAccessToken: accessToken,
+      source: "channel" as const,
+    },
+  };
 }
 
 type MetaPublishInput = {
@@ -298,13 +438,7 @@ export async function publishPhotoToFacebookPage({
   fileName = "graffiti-run-post.png",
   connection,
 }: MetaPublishInput & { connection?: MetaConnection | null }): Promise<MetaPublishResult> {
-  const activeConnection = connection ?? (await resolveMetaConnection());
-  const pageId = activeConnection?.pageId ?? "";
-  const accessToken = activeConnection?.accessToken ?? "";
-
-  if (!pageId || !accessToken) {
-    throw new Error("Meta Page ID or Page access token is missing.");
-  }
+  const { pageId, accessToken } = await resolveFacebookAccessContext(connection);
 
   const formData = new FormData();
   formData.set("caption", caption);
@@ -354,12 +488,7 @@ async function getFacebookPermalink(objectId: string, accessToken: string) {
 }
 
 export async function fetchFacebookPostInsights(postId: string, connection?: MetaConnection | null): Promise<MetaInsightsResult> {
-  const activeConnection = connection ?? (await resolveMetaConnection());
-  const accessToken = activeConnection?.accessToken ?? "";
-
-  if (!accessToken) {
-    throw new Error("Meta Page access token is missing.");
-  }
+  const { accessToken } = await resolveFacebookAccessContext(connection);
 
   const fields =
     "permalink_url,shares,reactions.summary(true),comments.summary(true),insights.metric(post_impressions,post_impressions_unique,post_clicks)";

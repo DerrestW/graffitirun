@@ -38,7 +38,7 @@ export function RunPublishJobButton({ jobId }: RunPublishJobButtonProps) {
   }
 
   return (
-    <div className="mt-4">
+    <div>
       <button
         type="button"
         onClick={runJob}

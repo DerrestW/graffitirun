@@ -65,7 +65,7 @@ export async function scheduleDraftPublish(draftId: string, actorUserId: string,
   const supabase = createAdminSupabaseClient();
 
   if (!supabase || !draft) {
-    return { ok: true, status: "publish_queued", mode: "mock" as const };
+    return { ok: true, status: "publish_queued", mode: "mock" as const, jobId: `mock-${draftId}` };
   }
 
   const { data: existingJobs } = await supabase
@@ -94,10 +94,14 @@ export async function scheduleDraftPublish(draftId: string, actorUserId: string,
 
   await supabase.from("drafts").update(scheduleInput.draftUpdate as never).eq("id", draftId).eq("workspace_id", workspace.workspaceId);
 
+  let jobId = existingJob?.id ?? null;
+
   if (existingJob) {
     await supabase.from("publish_jobs").update(scheduleInput.publishJob as never).eq("id", existingJob.id);
   } else {
-    await supabase.from("publish_jobs").insert(scheduleInput.publishJob as never);
+    const inserted = await supabase.from("publish_jobs").insert(scheduleInput.publishJob as never).select("id").single();
+    const insertedRow = inserted.data as { id: string } | null;
+    jobId = insertedRow?.id ?? null;
   }
 
   await supabase.from("approval_logs").insert({
@@ -108,5 +112,5 @@ export async function scheduleDraftPublish(draftId: string, actorUserId: string,
     notes: scheduleInput.approvalLogNote,
   } as never);
 
-  return { ok: true, status: "publish_queued", mode: "supabase" as const };
+  return { ok: true, status: "publish_queued", mode: "supabase" as const, jobId: jobId ?? `draft-${draftId}` };
 }

@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import {
   connectFacebookPage,
   exchangeFacebookCodeForUserToken,
+  exchangeFacebookUserTokenForLongLivedToken,
+  fetchFacebookPageById,
   fetchFacebookPages,
+  getMetaIntegrationConfig,
   getPublicAppOrigin,
   type MetaPageOption,
 } from "@/lib/integrations/meta";
@@ -20,17 +23,44 @@ export async function GET(request: Request) {
 
   try {
     const redirectUri = `${origin}/api/connect/facebook/callback`;
-    const userToken = await exchangeFacebookCodeForUserToken({ code, redirectUri });
+    const shortLivedUserToken = await exchangeFacebookCodeForUserToken({ code, redirectUri });
+    const userToken = await exchangeFacebookUserTokenForLongLivedToken(shortLivedUserToken).catch(() => shortLivedUserToken);
     const pages = await fetchFacebookPages(userToken);
+    const fallbackConfig = getMetaIntegrationConfig();
+    const fallbackPageId = fallbackConfig.pageId;
+    const resolvedPages =
+      pages.length > 0
+        ? pages
+        : fallbackPageId
+          ? [await fetchFacebookPageById(fallbackPageId, userToken)].filter((page): page is MetaPageOption => Boolean(page))
+          : [];
+    const envBackedPages =
+      resolvedPages.length > 0
+        ? resolvedPages.map((page) => ({ ...page, userAccessToken: userToken }))
+        : fallbackConfig.pageId
+          ? [
+              {
+                id: fallbackConfig.pageId,
+                name: "Configured Facebook Page",
+                accessToken: userToken,
+                tasks: ["MANAGE", "ANALYZE", "CREATE_CONTENT"],
+                source: "oauth_user" as const,
+                userAccessToken: userToken,
+              } satisfies MetaPageOption,
+            ]
+          : [];
 
-    if (pages.length === 0) {
+    if (envBackedPages.length === 0) {
       const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_no_pages`);
       response.cookies.delete("gr_fb_oauth_state");
       return response;
     }
 
-    if (pages.length === 1) {
-      await connectFacebookPage(pages[0]);
+    if (envBackedPages.length === 1) {
+      await connectFacebookPage({
+        ...envBackedPages[0],
+        userAccessToken: userToken,
+      });
       const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_connected`);
       response.cookies.delete("gr_fb_oauth_state");
       response.cookies.delete("gr_fb_pages");
@@ -38,7 +68,7 @@ export async function GET(request: Request) {
     }
 
     const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_pick_page`);
-    response.cookies.set("gr_fb_pages", encodePagesCookie(pages), {
+    response.cookies.set("gr_fb_pages", encodePagesCookie(envBackedPages), {
       httpOnly: true,
       sameSite: "lax",
       secure: origin.startsWith("https://"),

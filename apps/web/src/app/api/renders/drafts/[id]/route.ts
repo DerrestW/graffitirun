@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { getDraftDetailsById } from "@/features/drafts/draft-service";
 import { customTemplateToTemplate, normalizeCustomTemplate, type CustomTemplate } from "@/features/templates/custom-template";
 import { listTemplates } from "@/features/templates/template-service";
@@ -41,11 +42,40 @@ export async function GET(request: Request, { params }: RouteProps) {
       insetImageUrl: searchParams.get("insetImageUrl") ?? topic.insetImageUrl,
     };
 
-    const image = await renderDraftPng({ draft: overriddenDraft, topic: overriddenTopic, template });
+    const headlineSize = Number(searchParams.get("headlineSize") ?? "");
+    const summarySize = Number(searchParams.get("summarySize") ?? "");
+    const format = searchParams.get("format") ?? "png";
+    const overriddenTemplate = {
+      ...template,
+      config: template.config
+        ? {
+            ...template.config,
+            headline: {
+              ...template.config.headline,
+              fontSize: Number.isFinite(headlineSize) && headlineSize > 0 ? headlineSize : template.config.headline.fontSize,
+            },
+            subheadline: {
+              ...template.config.subheadline,
+              fontSize: Number.isFinite(summarySize) && summarySize > 0 ? summarySize : template.config.subheadline.fontSize,
+            },
+          }
+        : template.config,
+    };
 
-    return new NextResponse(new Uint8Array(image), {
+    const brandFonts = {
+      heading: searchParams.get("headingFont") ?? undefined,
+      subheading: searchParams.get("subheadingFont") ?? undefined,
+    };
+
+    const image = await renderDraftPng({ draft: overriddenDraft, topic: overriddenTopic, template: overriddenTemplate, brandFonts });
+    const body =
+      format === "jpeg" || format === "jpg"
+        ? await sharp(image).flatten({ background: "#ffffff" }).jpeg({ quality: 92, chromaSubsampling: "4:4:4" }).toBuffer()
+        : image;
+
+    return new NextResponse(new Uint8Array(body), {
       headers: {
-        "Content-Type": "image/png",
+        "Content-Type": format === "jpeg" || format === "jpg" ? "image/jpeg" : "image/png",
         "Cache-Control": "no-store",
       },
     });

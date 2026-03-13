@@ -35,7 +35,7 @@ export function ConnectionSetupPanel({
   metaStatus: MetaStatus;
   xStatus: XStatus;
   facebookPages: Array<{ id: string; name: string; accessToken: string; tasks: string[] }>;
-  facebookConnectedPage: { name: string; id: string; source: "env" | "channel" } | null;
+  facebookConnectedPage: { name: string; id: string; source: "env" | "channel" | "oauth_user" | "oauth" | "manual" } | null;
 }) {
   if (!connector) {
     return null;

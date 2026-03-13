@@ -166,7 +166,7 @@ function buildInsetOverlay(template: Template, topic: Topic) {
   });
 }
 
-function buildHeadlineStrip(template: Template, draft: Draft) {
+async function buildHeadlineStrip(template: Template, draft: Draft) {
   const headline = template.config?.headline;
   if (!headline) {
     return null;
@@ -177,24 +177,67 @@ function buildHeadlineStrip(template: Template, draft: Draft) {
   const lineHeight = headline.fontSize * 1.08;
   const textHeight = lines.length * lineHeight;
   const stripHeight = textHeight + headline.paddingY * 2;
+  const textBuffer = await sharp({
+    text: {
+      text: escapeXml(lines.join("\n")),
+      width: Math.max(headline.width - headline.paddingX * 2, 100),
+      height: Math.max(Math.ceil(textHeight + 8), 40),
+      rgba: true,
+      align: "left",
+      wrap: "word-char",
+      font: `sans ${Math.max(Math.round(headline.fontSize), 16)}`,
+      dpi: 180,
+      spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
+    },
+  })
+    .ensureAlpha()
+    .tint(headline.color)
+    .png()
+    .toBuffer();
+
+  const strip = await sharp({
+    create: {
+      width: headline.width,
+      height: Math.ceil(stripHeight),
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: Buffer.from(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="${headline.width}" height="${stripHeight}" viewBox="0 0 ${headline.width} ${stripHeight}">
+            <rect width="${headline.width}" height="${stripHeight}" rx="${headline.radius ?? 14}" fill="${headline.backgroundColor}" />
+          </svg>
+        `),
+      },
+      {
+        input: textBuffer,
+        top: headline.paddingY,
+        left: headline.paddingX,
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  const rotated =
+    headline.rotation !== 0
+      ? await sharp(strip)
+          .rotate(headline.rotation, {
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+          })
+          .png()
+          .toBuffer()
+      : strip;
 
   return {
-    input: Buffer.from(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="${headline.width}" height="${stripHeight}" viewBox="0 0 ${headline.width} ${stripHeight}">
-        <rect width="${headline.width}" height="${stripHeight}" rx="${headline.radius ?? 14}" fill="${headline.backgroundColor}" />
-        <text x="${headline.paddingX}" y="${headline.paddingY + headline.fontSize}" font-family="Arial Black, Arial, sans-serif" font-size="${headline.fontSize}" fill="${headline.color}">
-          ${lines
-            .map((line, index) => `<tspan x="${headline.paddingX}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`)
-            .join("")}
-        </text>
-      </svg>
-    `),
+    input: rotated,
     top: headline.y,
     left: headline.x,
   };
 }
 
-function buildSubheadlineOverlay(template: Template, draft: Draft) {
+async function buildSubheadlineOverlay(template: Template, draft: Draft) {
   const subheadline = template.config?.subheadline;
   const emphasis = template.config?.emphasis;
   if (!subheadline || !emphasis) {
@@ -215,7 +258,6 @@ function buildSubheadlineOverlay(template: Template, draft: Draft) {
 
   function renderLine(line: string) {
     const words = line.split(" ");
-    let x = 0;
 
     return words
       .map((word, index) => {
@@ -228,24 +270,59 @@ function buildSubheadlineOverlay(template: Template, draft: Draft) {
             : keywordSet.has(cleaned)
               ? emphasisColor
               : subheadlineColor;
-        const chunk = `<tspan dx="${x === 0 ? 0 : 18}" fill="${fill}">${escapeXml(word)}</tspan>`;
-        x += 1;
-        return chunk;
+        return `<span foreground="${fill}">${escapeXml(word)}</span>`;
       })
-      .join("");
+      .join(" ");
   }
 
+  const textMarkup = lines.map((line) => renderLine(line)).join("\n");
+  const textBuffer = await sharp({
+    text: {
+      text: textMarkup,
+      width: Math.max(subheadline.width - paddingX * 2, 120),
+      height: Math.max(Math.ceil(lines.length * lineHeight + 12), 40),
+      rgba: true,
+      align: "left",
+      wrap: "word-char",
+      font: `sans ${Math.max(Math.round(subheadline.fontSize), 16)}`,
+      dpi: 180,
+      spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
+    },
+  })
+    .ensureAlpha()
+    .png()
+    .toBuffer();
+
+  const composites: sharp.OverlayOptions[] = [];
+  if (backgroundColor) {
+    composites.push({
+      input: Buffer.from(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="${subheadline.width}" height="${height}" viewBox="0 0 ${subheadline.width} ${height}">
+          <rect width="${subheadline.width}" height="${height}" rx="${radius}" fill="${backgroundColor}" />
+        </svg>
+      `),
+    });
+  }
+  composites.push({
+    input: textBuffer,
+    top: paddingY,
+    left: paddingX,
+  });
+
+  const overlay = await sharp({
+    create: {
+      width: subheadline.width,
+      height: Math.ceil(height),
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite(composites)
+    .png()
+    .toBuffer();
+
   return {
-    input: Buffer.from(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="${subheadline.width}" height="${height}" viewBox="0 0 ${subheadline.width} ${height}">
-        ${backgroundColor ? `<rect width="${subheadline.width}" height="${height}" rx="${radius}" fill="${backgroundColor}" />` : ""}
-        <text x="${paddingX}" y="${paddingY + subheadline.fontSize}" font-family="Arial Black, Arial, sans-serif" font-size="${subheadline.fontSize}">
-          ${lines
-            .map((line, index) => `<tspan x="${paddingX}" dy="${index === 0 ? 0 : lineHeight}">${renderLine(line)}</tspan>`)
-            .join("")}
-        </text>
-      </svg>
-    `),
+    input: overlay,
     top: subheadline.y,
     left: subheadline.x,
   };

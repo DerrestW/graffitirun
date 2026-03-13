@@ -19,6 +19,8 @@ type RenderInputs = {
 };
 
 const bundledFontPath = path.join(process.cwd(), "public", "fonts", "NotoSans-Variable.ttf");
+const interFontPath = path.join(process.cwd(), "public", "fonts", "Inter-Regular.ttf");
+const nunitoFontPath = path.join(process.cwd(), "public", "fonts", "NunitoSans-Regular.ttf");
 function resolveBrandFonts(overrides?: RenderInputs["brandFonts"], useBrandFonts = false) {
   if (!useBrandFonts) {
     return {
@@ -31,10 +33,9 @@ function resolveBrandFonts(overrides?: RenderInputs["brandFonts"], useBrandFonts
   const normalize = (value?: string | null) => {
     const v = value?.trim();
     if (!v) return "Noto Sans";
-    // Map common brand picks to safe stacks; falls back to bundled Noto for rendering reliability.
-    if (["Helvetica", "Helvetica Neue"].includes(v)) return "Helvetica Neue, Arial, Noto Sans";
-    if (["Avenir", "Avenir Next"].includes(v)) return "Avenir Next, \"Nunito Sans\", Noto Sans";
-    return `${v}, Noto Sans`;
+    if (["Helvetica", "Helvetica Neue"].includes(v)) return "Inter";
+    if (["Avenir", "Avenir Next"].includes(v)) return "Nunito Sans";
+    return v;
   };
 
   return {
@@ -47,10 +48,14 @@ function resolveBrandFonts(overrides?: RenderInputs["brandFonts"], useBrandFonts
 function resolveFontOptions(fontFamily: string, fontSize: number) {
   const family = fontFamily.trim() || "Noto Sans";
   const size = Math.max(Math.round(fontSize), 16);
+  const fontfile = family.startsWith("Inter")
+    ? interFontPath
+    : family.startsWith("Nunito Sans")
+      ? nunitoFontPath
+      : bundledFontPath;
   return {
     font: `${family} ${size}`,
-    // Keep bundled Noto Sans available as a fallback without overriding custom families.
-    fontfile: bundledFontPath,
+    fontfile,
   } as const;
 }
 

@@ -10,12 +10,14 @@ export type MetaPageOption = {
   accessToken: string;
   tasks: string[];
   source?: "oauth" | "oauth_user" | "env";
+  userAccessToken?: string;
 };
 
 export type MetaConnection = {
   pageId: string;
   accessToken: string;
   pageName?: string;
+  userAccessToken?: string;
   source: "env" | "channel" | "oauth" | "oauth_user" | "manual";
 };
 
@@ -91,6 +93,10 @@ export async function getStoredFacebookConnection(): Promise<MetaConnection | nu
   const pageId = typeof metadata.page_id === "string" ? metadata.page_id : "";
   const pageName = typeof metadata.page_name === "string" ? metadata.page_name : row.display_name;
   const source = typeof metadata.source === "string" ? metadata.source : "channel";
+  const userAccessToken =
+    typeof metadata.user_access_token === "string"
+      ? metadata.user_access_token
+      : row.refresh_token_encrypted ?? undefined;
 
   if (!pageId) {
     return null;
@@ -100,6 +106,7 @@ export async function getStoredFacebookConnection(): Promise<MetaConnection | nu
     pageId,
     accessToken: row.access_token_encrypted,
     pageName,
+    userAccessToken,
     source:
       source === "oauth_user" || source === "oauth" || source === "manual"
         ? source
@@ -290,12 +297,13 @@ export async function connectFacebookPage(page: MetaPageOption) {
     channel_type: "facebook_page",
     display_name: page.name,
     access_token_encrypted: page.accessToken,
-    refresh_token_encrypted: null,
+    refresh_token_encrypted: page.userAccessToken ?? null,
     channel_metadata_json: {
       page_id: page.id,
       page_name: page.name,
       tasks: page.tasks,
       source: page.source ?? "oauth",
+      user_access_token: page.userAccessToken ?? null,
     },
     status: "connected",
   };
@@ -324,6 +332,27 @@ async function resolveFacebookAccessContext(connection?: MetaConnection | null) 
   }
 
   if (activeConnection.source !== "oauth_user") {
+    if (activeConnection.userAccessToken) {
+      const page = await fetchFacebookPageById(pageId, activeConnection.userAccessToken);
+      if (page?.accessToken) {
+        await connectFacebookPage({
+          ...page,
+          source: "oauth",
+          userAccessToken: activeConnection.userAccessToken,
+        });
+
+        return {
+          pageId,
+          accessToken: page.accessToken,
+          connection: {
+            ...activeConnection,
+            accessToken: page.accessToken,
+            source: "oauth",
+          },
+        };
+      }
+    }
+
     return {
       pageId,
       accessToken,
@@ -339,6 +368,7 @@ async function resolveFacebookAccessContext(connection?: MetaConnection | null) 
   await connectFacebookPage({
     ...page,
     source: "oauth",
+    userAccessToken: accessToken,
   });
 
   return {
@@ -347,6 +377,7 @@ async function resolveFacebookAccessContext(connection?: MetaConnection | null) 
     connection: {
       ...activeConnection,
       accessToken: page.accessToken,
+      userAccessToken: accessToken,
       source: "channel" as const,
     },
   };

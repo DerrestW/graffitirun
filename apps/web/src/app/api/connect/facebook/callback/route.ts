@@ -36,7 +36,7 @@ export async function GET(request: Request) {
           : [];
     const envBackedPages =
       resolvedPages.length > 0
-        ? resolvedPages
+        ? resolvedPages.map((page) => ({ ...page, userAccessToken: userToken }))
         : fallbackConfig.pageId
           ? [
               {
@@ -45,6 +45,7 @@ export async function GET(request: Request) {
                 accessToken: userToken,
                 tasks: ["MANAGE", "ANALYZE", "CREATE_CONTENT"],
                 source: "oauth_user" as const,
+                userAccessToken: userToken,
               } satisfies MetaPageOption,
             ]
           : [];
@@ -56,7 +57,10 @@ export async function GET(request: Request) {
     }
 
     if (envBackedPages.length === 1) {
-      await connectFacebookPage(envBackedPages[0]);
+      await connectFacebookPage({
+        ...envBackedPages[0],
+        userAccessToken: userToken,
+      });
       const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_connected`);
       response.cookies.delete("gr_fb_oauth_state");
       response.cookies.delete("gr_fb_pages");

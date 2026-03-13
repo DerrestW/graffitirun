@@ -24,22 +24,36 @@ export async function GET(request: Request) {
     const redirectUri = `${origin}/api/connect/facebook/callback`;
     const userToken = await exchangeFacebookCodeForUserToken({ code, redirectUri });
     const pages = await fetchFacebookPages(userToken);
-    const fallbackPageId = getMetaIntegrationConfig().pageId;
+    const fallbackConfig = getMetaIntegrationConfig();
+    const fallbackPageId = fallbackConfig.pageId;
     const resolvedPages =
       pages.length > 0
         ? pages
         : fallbackPageId
           ? [await fetchFacebookPageById(fallbackPageId, userToken)].filter((page): page is MetaPageOption => Boolean(page))
           : [];
+    const envBackedPages =
+      resolvedPages.length > 0
+        ? resolvedPages
+        : fallbackConfig.pageId && fallbackConfig.accessToken
+          ? [
+              {
+                id: fallbackConfig.pageId,
+                name: "Configured Facebook Page",
+                accessToken: fallbackConfig.accessToken,
+                tasks: ["MANAGE", "ANALYZE", "CREATE_CONTENT"],
+              },
+            ]
+          : [];
 
-    if (resolvedPages.length === 0) {
+    if (envBackedPages.length === 0) {
       const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_no_pages`);
       response.cookies.delete("gr_fb_oauth_state");
       return response;
     }
 
-    if (resolvedPages.length === 1) {
-      await connectFacebookPage(resolvedPages[0]);
+    if (envBackedPages.length === 1) {
+      await connectFacebookPage(envBackedPages[0]);
       const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_connected`);
       response.cookies.delete("gr_fb_oauth_state");
       response.cookies.delete("gr_fb_pages");
@@ -47,7 +61,7 @@ export async function GET(request: Request) {
     }
 
     const response = NextResponse.redirect(`${origin}/settings/connections?connector=facebook&status=facebook_pick_page`);
-    response.cookies.set("gr_fb_pages", encodePagesCookie(resolvedPages), {
+    response.cookies.set("gr_fb_pages", encodePagesCookie(envBackedPages), {
       httpOnly: true,
       sameSite: "lax",
       secure: origin.startsWith("https://"),

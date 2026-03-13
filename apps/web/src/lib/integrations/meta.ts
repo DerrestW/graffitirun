@@ -103,14 +103,10 @@ export async function getStoredFacebookConnection(): Promise<MetaConnection | nu
 }
 
 export async function resolveMetaConnection(): Promise<MetaConnection | null> {
-  const stored = await getStoredFacebookConnection();
-  if (stored) {
-    return stored;
-  }
-
   const env = getMetaIntegrationConfig();
   if (!env.pageId || !env.accessToken) {
-    return null;
+    const stored = await getStoredFacebookConnection();
+    return stored;
   }
 
   return {

@@ -35,6 +35,18 @@ const bannerMap: Record<string, { tone: string; message: string }> = {
     tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
     message: "Publish job executed.",
   },
+  publish_completed_cleared: {
+    tone: "border-sky-200 bg-sky-50 text-sky-800",
+    message: "Completed publish jobs cleared.",
+  },
+  publish_stale_cleared: {
+    tone: "border-sky-200 bg-sky-50 text-sky-800",
+    message: "Stale queued jobs cleared.",
+  },
+  publish_clear_failed: {
+    tone: "border-rose-200 bg-rose-50 text-rose-800",
+    message: "Publish queue cleanup failed.",
+  },
   sync_completed: {
     tone: "border-emerald-200 bg-emerald-50 text-emerald-800",
     message: "Meta insights synced.",

@@ -3,6 +3,7 @@
 
 import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Draft, Template, Topic } from "@/lib/domain";
 import {
   customTemplateStorageKey,
@@ -22,6 +23,7 @@ type DraftStudioEditorProps = {
 type PlacementMode = "feed" | "story";
 
 export function DraftStudioEditor({ draft, template, templates, topic, initialTemplateId }: DraftStudioEditorProps) {
+  const router = useRouter();
   const [selectedVersion, setSelectedVersion] = useState(0);
   const [selectedCaption, setSelectedCaption] = useState(0);
   const [placement, setPlacement] = useState<PlacementMode>("feed");
@@ -35,6 +37,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
   const [insetImageUrl, setInsetImageUrl] = useState(topic.insetImageUrl ?? topic.imageUrl);
   const [assetStatus, setAssetStatus] = useState<string | null>(null);
   const [uploadingTarget, setUploadingTarget] = useState<"background" | "inset" | null>(null);
+  const [finalizeState, setFinalizeState] = useState<"idle" | "saving" | "publishing">("idle");
 
   useEffect(() => {
     try {
@@ -140,6 +143,58 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     setAssetStatus("Image download started.");
+  }
+
+  async function finalizeDraft(options?: { publish?: boolean }) {
+    setFinalizeState(options?.publish ? "publishing" : "saving");
+    setAssetStatus(null);
+
+    try {
+      const response = await fetch(`/api/drafts/${draft.id}/finalize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          headline,
+          summary,
+          hook,
+          backgroundImageUrl: currentBackgroundUrl,
+          insetImageUrl: currentInsetUrl,
+          templateId: activeTemplate.id,
+          customTemplate: selectedTemplateId.startsWith("custom-")
+            ? customTemplates.find((item) => item.id === selectedTemplateId) ?? null
+            : null,
+        }),
+      });
+      const result = (await response.json()) as { ok?: boolean; error?: string; status?: string };
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error ?? "Failed to save finalized image.");
+      }
+
+      if (options?.publish) {
+        const publishResponse = await fetch(`/api/drafts/${draft.id}/publish-now`, {
+          method: "POST",
+        });
+        const publishResult = (await publishResponse.json()) as { ok?: boolean; error?: string; status?: string };
+        if (!publishResponse.ok || !publishResult.ok) {
+          throw new Error(publishResult.error ?? "Failed to publish finalized image.");
+        }
+
+        setAssetStatus("Finalized JPEG saved and publish started.");
+        router.push(`/drafts/${draft.id}?status=${publishResult.status ?? "publish_executed"}`);
+      } else {
+        setAssetStatus("Finalized square JPEG saved for publishing.");
+        router.push(`/drafts/${draft.id}?status=${result.status ?? "draft_finalized"}`);
+      }
+
+      router.refresh();
+    } catch (error) {
+      setAssetStatus(error instanceof Error ? error.message : "Failed to save finalized image.");
+    } finally {
+      setFinalizeState("idle");
+    }
   }
 
   function handleDownloadCaption() {
@@ -249,15 +304,33 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
             <div className="mx-auto mt-4 flex max-w-[560px] flex-wrap gap-3">
               <button
                 type="button"
+                onClick={() => finalizeDraft()}
+                disabled={finalizeState !== "idle"}
+                className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {finalizeState === "saving" ? "Saving..." : "Save finalized JPEG"}
+              </button>
+              <button
+                type="button"
+                onClick={() => finalizeDraft({ publish: true })}
+                disabled={finalizeState !== "idle"}
+                className="rounded-full bg-[color:var(--success)] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {finalizeState === "publishing" ? "Publishing..." : "Save & publish now"}
+              </button>
+              <button
+                type="button"
                 onClick={handleDownloadImage}
-                className="rounded-full bg-[color:var(--navy)] px-4 py-2 text-sm font-semibold text-white"
+                disabled={finalizeState !== "idle"}
+                className="rounded-full bg-[color:var(--navy)] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Download image
               </button>
               <button
                 type="button"
                 onClick={handleDownloadCaption}
-                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[color:var(--foreground)]"
+                disabled={finalizeState !== "idle"}
+                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[color:var(--foreground)] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Download caption
               </button>

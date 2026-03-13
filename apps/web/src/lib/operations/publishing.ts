@@ -15,6 +15,8 @@ import { createAdminSupabaseClient } from "@/lib/supabase/server";
 import { getWorkspaceContext } from "@/lib/db/queries";
 import type { Database } from "@/lib/db/database.types";
 import type { Draft, Template, Topic } from "@/lib/domain";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 const preferMockPublishing = process.env.NODE_ENV === "development";
 
@@ -205,7 +207,9 @@ async function publishDraftToFacebook({
   topic: Topic;
   connection?: MetaConnection | null;
 }) {
-  const image = await renderDraftPng({ draft, template, topic });
+  const image = draft.renderedAssetPath
+    ? await loadRenderedAsset(draft.renderedAssetPath).catch(() => renderDraftPng({ draft, template, topic }))
+    : await renderDraftPng({ draft, template, topic });
   const caption = [draft.captions[0]?.captionText ?? draft.selectedSummary, draft.captions[0]?.ctaText, draft.captions[0]?.hashtagsText]
     .filter(Boolean)
     .join("\n\n");
@@ -257,6 +261,15 @@ async function publishDraftToFacebook({
     insightsResponse,
     insights,
   };
+}
+
+async function loadRenderedAsset(renderedAssetPath: string) {
+  if (renderedAssetPath.startsWith("/")) {
+    const diskPath = path.join(process.cwd(), "public", renderedAssetPath.slice(1));
+    return fs.readFile(diskPath);
+  }
+
+  throw new Error("Unsupported rendered asset path.");
 }
 
 function getChannelMetaConnection(channel: Database["public"]["Tables"]["publishing_channels"]["Row"] | null): MetaConnection | null {

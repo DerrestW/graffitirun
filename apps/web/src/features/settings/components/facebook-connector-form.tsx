@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type MetaStatus = {
   graphVersion: string;
@@ -31,6 +32,7 @@ export function FacebookConnectorForm({
   metaStatus: MetaStatus;
   initialPageName: string;
 }) {
+  const router = useRouter();
   const [draft, setDraft] = useState<ConnectorDraft>(() => {
     if (typeof window === "undefined") {
       return {
@@ -66,6 +68,7 @@ export function FacebookConnectorForm({
     }
   });
   const [status, setStatus] = useState<string | null>(null);
+  const [savingLive, setSavingLive] = useState(false);
 
   function save() {
     window.localStorage.setItem(storageKey, JSON.stringify(draft));
@@ -86,6 +89,38 @@ export function FacebookConnectorForm({
   }
 
   const localReady = Boolean(draft.appId && draft.appSecret && draft.pageId && draft.pageAccessToken);
+
+  async function saveLiveConnector() {
+    setSavingLive(true);
+    setStatus(null);
+
+    try {
+      const response = await fetch("/api/connect/facebook/manual", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pageId: draft.pageId,
+          pageName: draft.pageName,
+          accessToken: draft.pageAccessToken,
+        }),
+      });
+      const result = (await response.json()) as { ok?: boolean; error?: string; status?: string };
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error ?? "Failed to save Facebook connector.");
+      }
+
+      setStatus("Facebook Page token saved to the live connector.");
+      router.push(`/settings/connections?connector=facebook&status=${result.status ?? "facebook_connected"}`);
+      router.refresh();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Failed to save Facebook connector.");
+    } finally {
+      setSavingLive(false);
+    }
+  }
 
   return (
     <div className="rounded-[1.5rem] bg-white/82 p-5">
@@ -161,6 +196,14 @@ export function FacebookConnectorForm({
       <div className="mt-5 flex flex-wrap gap-3">
         <button type="button" onClick={save} className="rounded-full bg-[color:var(--navy)] px-5 py-3 text-sm font-semibold text-white">
           Save connector values
+        </button>
+        <button
+          type="button"
+          onClick={saveLiveConnector}
+          disabled={savingLive || !draft.pageId || !draft.pageAccessToken}
+          className="rounded-full bg-[color:var(--success)] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {savingLive ? "Saving..." : "Save token to live connector"}
         </button>
         <button type="button" onClick={reset} className="rounded-full bg-[#f4e6df] px-5 py-3 text-sm font-semibold text-[#8c3e22]">
           Clear values

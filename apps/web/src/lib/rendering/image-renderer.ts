@@ -11,6 +11,8 @@ type RenderInputs = {
   template: Template;
 };
 
+const bundledFontPath = path.join(process.cwd(), "public", "fonts", "NotoSans-Variable.ttf");
+
 function escapeXml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -185,7 +187,8 @@ async function buildHeadlineStrip(template: Template, draft: Draft) {
       rgba: true,
       align: "left",
       wrap: "word-char",
-      font: `sans bold ${Math.max(Math.round(headline.fontSize), 16)}`,
+      font: `Noto Sans ${Math.max(Math.round(headline.fontSize), 16)}`,
+      fontfile: bundledFontPath,
       spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
     },
   })
@@ -281,7 +284,8 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft) {
       rgba: true,
       align: "left",
       wrap: "word-char",
-      font: `sans bold ${Math.max(Math.round(subheadline.fontSize), 16)}`,
+      font: `Noto Sans ${Math.max(Math.round(subheadline.fontSize), 16)}`,
+      fontfile: bundledFontPath,
       spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
     },
   })

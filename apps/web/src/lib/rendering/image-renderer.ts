@@ -186,7 +186,6 @@ async function buildHeadlineStrip(template: Template, draft: Draft) {
       align: "left",
       wrap: "word-char",
       font: `sans ${Math.max(Math.round(headline.fontSize), 16)}`,
-      dpi: 180,
       spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
     },
   })
@@ -285,7 +284,6 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft) {
       align: "left",
       wrap: "word-char",
       font: `sans ${Math.max(Math.round(subheadline.fontSize), 16)}`,
-      dpi: 180,
       spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
     },
   })

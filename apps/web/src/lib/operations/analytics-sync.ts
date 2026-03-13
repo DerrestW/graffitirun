@@ -2,7 +2,7 @@ import "server-only";
 
 import { requirePermission } from "@/lib/authz";
 import { getWorkspaceContext } from "@/lib/db/queries";
-import { fetchFacebookPostInsights, getMetaIntegrationStatus, type MetaConnection } from "@/lib/integrations/meta";
+import { fetchFacebookPostInsights, getMetaIntegrationStatus, resolveMetaConnection, type MetaConnection } from "@/lib/integrations/meta";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
 export async function syncMetaInsights() {
@@ -41,10 +41,11 @@ export async function syncMetaInsights() {
   const channelMap = new Map(channels.map((channel) => [channel.id, channel]));
 
   let synced = 0;
+  const preferredConnection = await resolveMetaConnection();
 
   for (const post of publishedPosts) {
     try {
-      const connection = post.channel_id ? getChannelMetaConnection(channelMap.get(post.channel_id) ?? null) : null;
+      const connection = preferredConnection ?? (post.channel_id ? getChannelMetaConnection(channelMap.get(post.channel_id) ?? null) : null);
       const insights = await fetchFacebookPostInsights(post.external_post_id, connection);
       const metricDate = new Date().toISOString().slice(0, 10);
 

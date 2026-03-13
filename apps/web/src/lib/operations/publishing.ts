@@ -2,7 +2,13 @@ import "server-only";
 
 import { requirePermission } from "@/lib/authz";
 import { getPublishingAdapter } from "@/lib/integrations/publishing-adapters";
-import { fetchFacebookPostInsights, getMetaIntegrationStatus, publishPhotoToFacebookPage, type MetaConnection } from "@/lib/integrations/meta";
+import {
+  fetchFacebookPostInsights,
+  getMetaIntegrationStatus,
+  publishPhotoToFacebookPage,
+  resolveMetaConnection,
+  type MetaConnection,
+} from "@/lib/integrations/meta";
 import { mapTemplate, mapTopic } from "@/lib/db/mappers";
 import { renderDraftPng } from "@/lib/rendering/image-renderer";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
@@ -98,13 +104,15 @@ export async function runPublishJob(jobId: string) {
       ? await supabase.from("publishing_channels").select("*").eq("workspace_id", workspace.workspaceId).eq("id", job.channel_id).maybeSingle()
       : { data: null };
   const channel = channelResult.data as Database["public"]["Tables"]["publishing_channels"]["Row"] | null;
+  const facebookConnection =
+    (channel?.channel_type ?? "facebook_page") === "facebook_page" ? (await resolveMetaConnection()) ?? getChannelMetaConnection(channel) : null;
   const result =
     (channel?.channel_type ?? "facebook_page") === "facebook_page" && meta.publishingReady
       ? await publishDraftToFacebook({
           draft,
           template,
           topic,
-          connection: getChannelMetaConnection(channel),
+          connection: facebookConnection,
         })
       : await getPublishingAdapter(channel?.channel_type ?? "facebook_page").publish(draft);
   const completedAt = new Date().toISOString();

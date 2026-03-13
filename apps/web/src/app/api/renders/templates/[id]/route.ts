@@ -20,6 +20,7 @@ export async function GET(request: Request, { params }: RouteProps) {
       heading: searchParams.get("headingFont") ?? undefined,
       subheading: searchParams.get("subheadingFont") ?? undefined,
     };
+    const useBrandFonts = searchParams.get("useBrandFonts") === "true";
 
     if (!template || !draft || !topic) {
       return NextResponse.json({ ok: false, error: "Template render inputs not found." }, { status: 404 });
@@ -33,6 +34,7 @@ export async function GET(request: Request, { params }: RouteProps) {
       topic,
       template,
       brandFonts,
+      useBrandFonts,
     });
 
     return new NextResponse(new Uint8Array(image), {

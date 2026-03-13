@@ -15,10 +15,18 @@ type RenderInputs = {
     subheading?: string | null;
     body?: string | null;
   };
+  useBrandFonts?: boolean;
 };
 
 const bundledFontPath = path.join(process.cwd(), "public", "fonts", "NotoSans-Variable.ttf");
-function resolveBrandFonts(overrides?: RenderInputs["brandFonts"]) {
+function resolveBrandFonts(overrides?: RenderInputs["brandFonts"], useBrandFonts = false) {
+  if (!useBrandFonts) {
+    return {
+      heading: "Noto Sans",
+      subheading: "Noto Sans",
+      body: "Noto Sans",
+    } as const;
+  }
   return {
     heading: overrides?.heading?.trim() || brandingSettingsView.headingFont || "Noto Sans",
     subheading: overrides?.subheading?.trim() || brandingSettingsView.subheadingFont || "Noto Sans",
@@ -353,12 +361,12 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft, fontFam
   };
 }
 
-export async function renderDraftPng({ draft, topic, template, brandFonts }: RenderInputs) {
+export async function renderDraftPng({ draft, topic, template, brandFonts, useBrandFonts }: RenderInputs) {
   const width = template.width;
   const height = template.height;
   const backgroundInput = (await loadImageBuffer(topic.imageUrl)) ?? Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#1d2830"/></svg>`);
   const background = await sharp(backgroundInput).resize(width, height, { fit: "cover", position: "centre" }).png().toBuffer();
-  const fonts = resolveBrandFonts(brandFonts);
+  const fonts = resolveBrandFonts(brandFonts, useBrandFonts);
 
   const layers = await Promise.all([
     Promise.resolve({

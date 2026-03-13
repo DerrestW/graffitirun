@@ -45,6 +45,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     subheading: brandingSettingsView.subheadingFont,
     body: brandingSettingsView.bodyFont,
   });
+  const [useBrandFonts, setUseBrandFonts] = useState(false);
 
   useEffect(() => {
     try {
@@ -97,6 +98,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     customTemplate: selectedTemplateId.startsWith("custom-") ? customTemplates.find((item) => item.id === selectedTemplateId) ?? null : null,
     headingFont: brandFonts.heading,
     subheadingFont: brandFonts.subheading,
+    useBrandFonts,
   });
   const previewImageUrl = `${renderBaseUrl}&format=jpeg&snapshot=${buildSnapshotKey({
     headline,
@@ -196,6 +198,10 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
           customTemplate: selectedTemplateId.startsWith("custom-")
             ? customTemplates.find((item) => item.id === selectedTemplateId) ?? null
             : null,
+          headingFont: useBrandFonts ? brandFonts.heading : undefined,
+          subheadingFont: useBrandFonts ? brandFonts.subheading : undefined,
+          bodyFont: useBrandFonts ? brandFonts.body : undefined,
+          useBrandFonts,
         }),
       });
       const result = (await response.json()) as { ok?: boolean; error?: string; status?: string };
@@ -363,12 +369,16 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                   <span className="font-semibold text-[color:var(--foreground)]">Headline:</span>{" "}
                   {activeTemplate.headlinePlacement ?? "Default"}
                 </div>
-                <div className="rounded-[1rem] bg-white/80 px-4 py-3 text-sm text-[color:var(--ink-soft)]">
-                  <span className="font-semibold text-[color:var(--foreground)]">Subheader:</span>{" "}
-                  {activeTemplate.subheadlinePlacement ?? "Default"}
-                </div>
-              </div>
-            </div>
+          <div className="rounded-[1rem] bg-white/80 px-4 py-3 text-sm text-[color:var(--ink-soft)]">
+            <span className="font-semibold text-[color:var(--foreground)]">Subheader:</span>{" "}
+            {activeTemplate.subheadlinePlacement ?? "Default"}
+          </div>
+          <label className="mt-2 flex items-center gap-3 rounded-[1rem] bg-white/80 px-4 py-3 text-sm font-medium text-[color:var(--foreground)]">
+            <input type="checkbox" checked={useBrandFonts} onChange={(event) => setUseBrandFonts(event.target.checked)} />
+            <span>Apply branding fonts to render (beta)</span>
+          </label>
+        </div>
+      </div>
 
             <div className="surface-strong rounded-[1.5rem] p-5">
               <p className="text-xs uppercase tracking-[0.24em] text-[color:var(--muted)]">Placement controls</p>
@@ -565,6 +575,7 @@ function buildRenderUrl({
   customTemplate,
   headingFont,
   subheadingFont,
+  useBrandFonts,
 }: {
   draftId: string;
   headline: string;
@@ -578,6 +589,7 @@ function buildRenderUrl({
   customTemplate: CustomTemplate | null;
   headingFont: string;
   subheadingFont: string;
+  useBrandFonts: boolean;
 }) {
   const params = new URLSearchParams({
     headline,
@@ -588,9 +600,13 @@ function buildRenderUrl({
     backgroundImageUrl,
     insetImageUrl,
     templateId,
-    headingFont,
-    subheadingFont,
+    useBrandFonts: String(useBrandFonts),
   });
+
+  if (useBrandFonts) {
+    params.set("headingFont", headingFont);
+    params.set("subheadingFont", subheadingFont);
+  }
 
   if (customTemplate) {
     params.set("customTemplate", JSON.stringify(customTemplate));

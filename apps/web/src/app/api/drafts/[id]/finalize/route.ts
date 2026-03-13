@@ -33,6 +33,7 @@ export async function POST(request: Request, { params }: RouteProps) {
       headingFont?: string;
       subheadingFont?: string;
       bodyFont?: string;
+      useBrandFonts?: boolean;
     };
 
     const [draft, templates, topics] = await Promise.all([getDraftDetailsById(id), listTemplates(), listTopics()]);
@@ -95,6 +96,7 @@ export async function POST(request: Request, { params }: RouteProps) {
         subheading: body.subheadingFont,
         body: body.bodyFont,
       },
+      useBrandFonts: Boolean(body.useBrandFonts),
     });
     const jpeg = await sharp(png)
       .resize(template.width, template.height, { fit: "cover", position: "centre" })

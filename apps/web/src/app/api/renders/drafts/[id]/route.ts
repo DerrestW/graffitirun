@@ -66,8 +66,9 @@ export async function GET(request: Request, { params }: RouteProps) {
       heading: searchParams.get("headingFont") ?? undefined,
       subheading: searchParams.get("subheadingFont") ?? undefined,
     };
+    const useBrandFonts = searchParams.get("useBrandFonts") === "true";
 
-    const image = await renderDraftPng({ draft: overriddenDraft, topic: overriddenTopic, template: overriddenTemplate, brandFonts });
+    const image = await renderDraftPng({ draft: overriddenDraft, topic: overriddenTopic, template: overriddenTemplate, brandFonts, useBrandFonts });
     const body =
       format === "jpeg" || format === "jpg"
         ? await sharp(image).flatten({ background: "#ffffff" }).jpeg({ quality: 92, chromaSubsampling: "4:4:4" }).toBuffer()

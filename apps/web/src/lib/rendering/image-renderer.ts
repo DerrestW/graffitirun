@@ -17,24 +17,6 @@ type RenderInputs = {
   useBrandFonts?: boolean;
 };
 
-const bundledFontPath = path.join(process.cwd(), "public", "fonts", "NotoSans-Variable.ttf");
-function resolveBrandFonts() {
-  return {
-    // Force render-safe server fonts until custom brand font assets are wired correctly.
-    heading: "Noto Sans",
-    subheading: "Noto Sans",
-    body: "Noto Sans",
-  } as const;
-}
-
-function resolveFontOptions(fontFamily: string, fontSize: number) {
-  return {
-    font: fontFamily.trim() || "Noto Sans",
-    fontfile: bundledFontPath,
-    dpi: Math.max(Math.round(fontSize * 6), 72),
-  } as const;
-}
-
 function escapeXml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -198,7 +180,7 @@ type HeadlineOverlay = {
   height: number;
 };
 
-async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: string): Promise<HeadlineOverlay | null> {
+async function buildHeadlineStrip(template: Template, draft: Draft): Promise<HeadlineOverlay | null> {
   const headline = template.config?.headline;
   if (!headline) {
     return null;
@@ -207,7 +189,6 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
   const lineLength = template.templateType === "story" ? 26 : 30;
   const lines = wrapText(draft.selectedHeadline, lineLength).slice(0, 2);
   const lineHeight = headline.fontSize * 1.08;
-  const { font, fontfile, dpi } = resolveFontOptions(fontFamily, headline.fontSize);
   const textBuffer = await sharp({
     text: {
       text: `<span foreground="${headline.color}">${escapeXml(lines.join("\n"))}</span>`,
@@ -215,9 +196,7 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
       rgba: true,
       align: "left",
       wrap: "word-char",
-      font,
-      fontfile,
-      dpi,
+      font: `sans bold ${Math.max(Math.round(headline.fontSize), 16)}`,
       spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
     },
   })
@@ -261,9 +240,8 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
             background: { r: 0, g: 0, b: 0, alpha: 0 },
           })
           .png()
-          .toBuffer({ resolveWithObject: false })
+          .toBuffer()
       : strip;
-
   const rotatedMeta = await sharp(rotated).metadata();
 
   return {
@@ -275,12 +253,7 @@ async function buildHeadlineStrip(template: Template, draft: Draft, fontFamily: 
   };
 }
 
-async function buildSubheadlineOverlay(
-  template: Template,
-  draft: Draft,
-  fontFamily: string,
-  headlineOverlay?: HeadlineOverlay | null,
-) {
+async function buildSubheadlineOverlay(template: Template, draft: Draft, headlineOverlay?: HeadlineOverlay | null) {
   const subheadline = template.config?.subheadline;
   const emphasis = template.config?.emphasis;
   if (!subheadline || !emphasis) {
@@ -297,26 +270,27 @@ async function buildSubheadlineOverlay(
   const subheadlineColor = subheadline.color;
   const backgroundColor = subheadline.backgroundColor;
   const radius = subheadline.radius ?? 18;
-  const { font, fontfile, dpi } = resolveFontOptions(fontFamily, subheadline.fontSize);
-  const textMarkup = `<span>${lines
-    .map((line) =>
-      line
-        .split(" ")
-        .map((word, index) => {
-          const cleaned = word.replace(/[^a-z0-9]/gi, "").toLowerCase();
-          const fill =
-            mode === "every_fifth"
-              ? (index + 1) % 5 === 0
-                ? emphasisColor
-                : subheadlineColor
-              : keywordSet.has(cleaned)
-                ? emphasisColor
-                : subheadlineColor;
-          return `<span foreground="${fill}">${escapeXml(word)}</span>`;
-        })
-        .join(" "),
-    )
-    .join("\n")}</span>`;
+
+  function renderLine(line: string) {
+    const words = line.split(" ");
+
+    return words
+      .map((word, index) => {
+        const cleaned = word.replace(/[^a-z0-9]/gi, "").toLowerCase();
+        const fill =
+          mode === "every_fifth"
+            ? (index + 1) % 5 === 0
+              ? emphasisColor
+              : subheadlineColor
+            : keywordSet.has(cleaned)
+              ? emphasisColor
+              : subheadlineColor;
+        return `<span foreground="${fill}">${escapeXml(word)}</span>`;
+      })
+      .join(" ");
+  }
+
+  const textMarkup = `<span>${lines.map((line) => renderLine(line)).join("\n")}</span>`;
   const textBuffer = await sharp({
     text: {
       text: textMarkup,
@@ -324,9 +298,7 @@ async function buildSubheadlineOverlay(
       rgba: true,
       align: "left",
       wrap: "word-char",
-      font,
-      fontfile,
-      dpi,
+      font: `sans bold ${Math.max(Math.round(subheadline.fontSize), 16)}`,
       spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
     },
   })
@@ -366,27 +338,41 @@ async function buildSubheadlineOverlay(
     .composite(composites)
     .png()
     .toBuffer();
-
   const minimumTop =
     headlineOverlay && subheadline.y < headlineOverlay.top + headlineOverlay.height
       ? headlineOverlay.top + headlineOverlay.height + (template.templateType === "story" ? 28 : 22)
       : subheadline.y;
+  const maxTop = Math.max(template.height - Math.ceil(height) - (template.templateType === "story" ? 48 : 32), 0);
 
   return {
     input: overlay,
-    top: minimumTop,
+    top: Math.min(minimumTop, maxTop),
     left: subheadline.x,
+    width: subheadline.width,
+    height: Math.ceil(height),
   };
 }
 
 export async function renderDraftPng({ draft, topic, template }: RenderInputs) {
   const width = template.width;
   const height = template.height;
-  const backgroundInput = (await loadImageBuffer(topic.imageUrl)) ?? Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#1d2830"/></svg>`);
+  const backgroundInput =
+    (await loadImageBuffer(topic.imageUrl)) ??
+    Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#1d2830"/></svg>`);
   const background = await sharp(backgroundInput).resize(width, height, { fit: "cover", position: "centre" }).png().toBuffer();
-  const fonts = resolveBrandFonts();
 
-  const headlineOverlay = await buildHeadlineStrip(template, draft, fonts.heading);
+  const headlineOverlay = await buildHeadlineStrip(template, draft);
+  const subheadlineOverlay = await buildSubheadlineOverlay(template, draft, headlineOverlay);
+  const adjustedHeadlineOverlay =
+    headlineOverlay && subheadlineOverlay && headlineOverlay.top + headlineOverlay.height > subheadlineOverlay.top
+      ? {
+          ...headlineOverlay,
+          top: Math.max(
+            24,
+            subheadlineOverlay.top - headlineOverlay.height - (template.templateType === "story" ? 28 : 22),
+          ),
+        }
+      : headlineOverlay;
   const layers = await Promise.all([
     Promise.resolve({
       input: buildGradientOverlay(
@@ -401,8 +387,8 @@ export async function renderDraftPng({ draft, topic, template }: RenderInputs) {
     }),
     buildLogoOverlay(template),
     buildInsetOverlay(template, topic),
-    Promise.resolve(headlineOverlay),
-    Promise.resolve(buildSubheadlineOverlay(template, draft, fonts.subheading, headlineOverlay)),
+    Promise.resolve(adjustedHeadlineOverlay),
+    Promise.resolve(subheadlineOverlay),
   ]);
 
   return sharp(background)

@@ -61,3 +61,27 @@ export async function clearPublishJobsAction(formData: FormData) {
   revalidatePath("/dashboard");
   redirect(`/publishing?status=${mode === "stale" ? "publish_stale_cleared" : "publish_completed_cleared"}`);
 }
+
+export async function removePublishJobAction(formData: FormData) {
+  const jobId = String(formData.get("jobId") ?? "");
+
+  try {
+    await requirePermission("publishDrafts");
+    const [workspace, supabase] = await Promise.all([getWorkspaceContext(), Promise.resolve(createAdminSupabaseClient())]);
+
+    if (!supabase || !jobId) {
+      redirect("/publishing?status=publish_clear_failed");
+    }
+
+    await supabase.from("publish_jobs").delete().eq("workspace_id", workspace.workspaceId).eq("id", jobId);
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      redirect("/publishing?status=unauthorized");
+    }
+    throw error;
+  }
+
+  revalidatePath("/publishing");
+  revalidatePath("/dashboard");
+  redirect("/publishing?status=publish_job_removed");
+}

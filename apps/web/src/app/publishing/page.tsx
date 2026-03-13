@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { ActionBanner } from "@/components/action-banner";
 import { PageHeader } from "@/components/page-header";
-import { clearPublishJobsAction } from "@/features/publishing/actions";
+import { removePublishJobAction } from "@/features/publishing/actions";
 import { StatusPill } from "@/components/status-pill";
 import { RunPublishJobButton } from "@/features/publishing/components/run-publish-job-button";
 import { listPublishJobs } from "@/features/publishing/publishing-service";
@@ -32,26 +32,6 @@ export default async function PublishingPage({ searchParams }: PublishingPagePro
         description="The queue is split by state and can run through local-safe adapters while remaining structured for future Facebook and X wiring."
         badge="multi-channel ready"
       />
-      <section className="mb-6 flex flex-wrap gap-3">
-        <form action={clearPublishJobsAction}>
-          <input type="hidden" name="mode" value="completed" />
-          <button
-            type="submit"
-            className="rounded-full bg-[#103d52] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0b3142]"
-          >
-            Clear completed jobs
-          </button>
-        </form>
-        <form action={clearPublishJobsAction}>
-          <input type="hidden" name="mode" value="stale" />
-          <button
-            type="submit"
-            className="rounded-full border border-[#103d52]/18 bg-white px-4 py-2 text-sm font-semibold text-[#103d52] transition hover:border-[#103d52]/28 hover:bg-[#f7f4ee]"
-          >
-            Clear stale queued jobs
-          </button>
-        </form>
-      </section>
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <article className="surface rounded-[1.75rem] p-6">
           <p className="text-xs uppercase tracking-[0.24em] text-[color:var(--muted)]">Channel readiness</p>
@@ -122,9 +102,20 @@ export default async function PublishingPage({ searchParams }: PublishingPagePro
                   </div>
                   <p className="mt-2 text-sm text-[color:var(--ink-soft)]">{formatDateTime(job.scheduledFor)}</p>
                   {job.errorMessage ? <p className="mt-3 text-sm text-[color:var(--danger)]">{job.errorMessage}</p> : null}
-                  {(job.status === "queued" || job.status === "running") && column.title === "Scheduled" ? (
-                    <RunPublishJobButton jobId={job.id} />
-                  ) : null}
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {(job.status === "queued" || job.status === "running") && column.title === "Scheduled" ? (
+                      <RunPublishJobButton jobId={job.id} />
+                    ) : null}
+                    <form action={removePublishJobAction}>
+                      <input type="hidden" name="jobId" value={job.id} />
+                      <button
+                        type="submit"
+                        className="rounded-full border border-[#103d52]/18 bg-white px-4 py-2 text-sm font-semibold text-[#103d52] transition hover:border-[#103d52]/28 hover:bg-[#f7f4ee]"
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  </div>
                 </div>
               ))}
             </div>

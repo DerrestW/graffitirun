@@ -1,7 +1,5 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { savePublicAsset } from "@/lib/assets/storage";
 
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
@@ -25,15 +23,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Unsupported image format." }, { status: 400 });
     }
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    const filename = `${randomUUID()}.${extensionFor(file)}`;
-    const targetPath = path.join(uploadDir, filename);
     const buffer = Buffer.from(await file.arrayBuffer());
-    await fs.writeFile(targetPath, buffer);
+    const { publicPath } = await savePublicAsset({
+      buffer,
+      contentType: file.type,
+      extension: extensionFor(file),
+      folder: "topic-images",
+      filenamePrefix: "topic",
+    });
 
-    return NextResponse.json({ ok: true, path: `/uploads/${filename}` });
+    return NextResponse.json({ ok: true, path: publicPath });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "Upload failed." },

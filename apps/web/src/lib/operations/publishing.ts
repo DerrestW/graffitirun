@@ -264,6 +264,15 @@ async function publishDraftToFacebook({
 }
 
 async function loadRenderedAsset(renderedAssetPath: string) {
+  if (renderedAssetPath.startsWith("http://") || renderedAssetPath.startsWith("https://")) {
+    const response = await fetch(renderedAssetPath, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Failed to load rendered asset: ${renderedAssetPath}`);
+    }
+
+    return Buffer.from(await response.arrayBuffer());
+  }
+
   if (renderedAssetPath.startsWith("/")) {
     const diskPath = path.join(process.cwd(), "public", renderedAssetPath.slice(1));
     return fs.readFile(diskPath);

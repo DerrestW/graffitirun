@@ -1,9 +1,7 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { NextResponse } from "next/server";
 import { AuthorizationError, requirePermission } from "@/lib/authz";
+import { savePublicAsset } from "@/lib/assets/storage";
 import { getDraftDetailsById } from "@/features/drafts/draft-service";
 import { customTemplateToTemplate, normalizeCustomTemplate, type CustomTemplate } from "@/features/templates/custom-template";
 import { listTemplates } from "@/features/templates/template-service";
@@ -104,12 +102,13 @@ export async function POST(request: Request, { params }: RouteProps) {
       .jpeg({ quality: 92, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "finalized");
-    await fs.mkdir(uploadDir, { recursive: true });
-    const filename = `${draft.id}-${randomUUID()}.jpg`;
-    const targetPath = path.join(uploadDir, filename);
-    await fs.writeFile(targetPath, jpeg);
-    const publicPath = `/uploads/finalized/${filename}`;
+    const { publicPath } = await savePublicAsset({
+      buffer: jpeg,
+      contentType: "image/jpeg",
+      extension: "jpg",
+      folder: "finalized",
+      filenamePrefix: draft.id,
+    });
 
     const supabase = createAdminSupabaseClient();
     const workspace = await getWorkspaceContext();

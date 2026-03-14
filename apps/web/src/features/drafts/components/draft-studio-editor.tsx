@@ -569,10 +569,9 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                     Image focus
                   </span>
                 </button>
-                <button
-                  type="button"
-                  onPointerDown={(event) => startInteraction(event, "headline", "move")}
-                  className="pointer-events-auto absolute z-20 overflow-hidden rounded-[1.1rem] border-2 border-white/80 bg-white/12 shadow-[0_8px_20px_rgba(15,17,21,0.22)]"
+
+                <div
+                  className="absolute z-20"
                   style={{
                     left: effectiveHeadline.x * previewScale,
                     top: effectiveHeadline.y * previewScale,
@@ -589,12 +588,9 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                     transformOrigin: "top left",
                   }}
                 >
-                  <div className="absolute inset-0 z-0 rounded-[1rem] bg-white/95" />
-                  <span className="absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
-                    Headline
-                  </span>
+                  <div className="absolute inset-0 rounded-[1rem] bg-white shadow-[0_14px_30px_rgba(15,17,21,0.18)]" />
                   <div
-                    className="absolute inset-0 z-10 flex flex-col justify-end text-left font-semibold text-[#0f1115]"
+                    className="absolute inset-0 flex flex-col justify-end text-left font-semibold text-[#0f1115]"
                     style={{
                       paddingLeft: (activeTemplate.config?.headline.paddingX ?? 0) * previewScale,
                       paddingRight: (activeTemplate.config?.headline.paddingX ?? 0) * previewScale,
@@ -615,15 +611,23 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                         <div key={`${line}-${index}`}>{line}</div>
                       ))}
                   </div>
-                  <span
+                  <button
+                    type="button"
+                    onPointerDown={(event) => startInteraction(event, "headline", "move")}
+                    className="pointer-events-auto absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.82)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white"
+                  >
+                    Headline
+                  </button>
+                  <button
+                    type="button"
                     onPointerDown={(event) => startInteraction(event, "headline", "resize")}
-                    className="absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--accent)]"
+                    className="pointer-events-auto absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--accent)]"
+                    aria-label="Resize headline"
                   />
-                </button>
-                <button
-                  type="button"
-                  onPointerDown={(event) => startInteraction(event, "subheadline", "move")}
-                  className="pointer-events-auto absolute z-20 overflow-hidden rounded-[1rem] border-2 border-white/70 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.18)]"
+                </div>
+
+                <div
+                  className="absolute z-20"
                   style={{
                     left: effectiveSubheadline.x * previewScale,
                     top: effectiveSubheadline.y * previewScale,
@@ -640,15 +644,12 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 >
                   {activeTemplate.config?.subheadline.backgroundColor ? (
                     <div
-                      className="absolute inset-0 z-0"
+                      className="absolute inset-0 rounded-[1rem]"
                       style={{ backgroundColor: activeTemplate.config.subheadline.backgroundColor }}
                     />
                   ) : null}
-                  <span className="absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
-                    Secondary
-                  </span>
                   <div
-                    className="absolute inset-0 z-10 flex flex-col justify-end text-left font-semibold text-white"
+                    className="absolute inset-0 flex flex-col justify-end text-left font-semibold text-white"
                     style={{
                       paddingLeft: (activeTemplate.config?.subheadline.paddingX ?? 0) * previewScale,
                       paddingRight: (activeTemplate.config?.subheadline.paddingX ?? 0) * previewScale,
@@ -656,6 +657,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                       paddingBottom: (activeTemplate.config?.subheadline.paddingY ?? 0) * previewScale,
                       fontSize: effectiveSubheadline.fontSize * previewScale,
                       lineHeight: 1.08,
+                      textShadow: "0 2px 10px rgba(0,0,0,0.28)",
                     }}
                   >
                     {wrapTextForEstimate(
@@ -669,11 +671,20 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                         <div key={`${line}-${index}`}>{line}</div>
                       ))}
                   </div>
-                  <span
+                  <button
+                    type="button"
+                    onPointerDown={(event) => startInteraction(event, "subheadline", "move")}
+                    className="pointer-events-auto absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.82)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white"
+                  >
+                    Secondary
+                  </button>
+                  <button
+                    type="button"
                     onPointerDown={(event) => startInteraction(event, "subheadline", "resize")}
-                    className="absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--navy)]"
+                    className="pointer-events-auto absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--navy)]"
+                    aria-label="Resize secondary"
                   />
-                </button>
+                </div>
                 {activeTemplate.config?.insetImage ? (
                   <button
                     type="button"

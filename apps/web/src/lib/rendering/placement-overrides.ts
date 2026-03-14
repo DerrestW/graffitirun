@@ -35,13 +35,36 @@ export function applyPlacementOverrides(template: Template, overrides?: Template
             : clamp(overrides.subheadline.width, 220, template.width - clamp(overrides.subheadline.x ?? subheadline.x, 0, template.width - 120)),
       }
     : subheadline;
+  const insetImage = template.config.insetImage;
+  const nextInsetImage =
+    insetImage && overrides.insetImage
+      ? {
+          ...insetImage,
+          ...overrides.insetImage,
+          x: overrides.insetImage.x === undefined ? insetImage.x : clamp(overrides.insetImage.x, 0, template.width - 80),
+          y: overrides.insetImage.y === undefined ? insetImage.y : clamp(overrides.insetImage.y, 0, template.height - 80),
+          size: overrides.insetImage.size === undefined ? insetImage.size : clamp(overrides.insetImage.size, 80, Math.min(template.width, template.height)),
+        }
+      : insetImage;
 
   return {
     ...template,
     config: {
       ...template.config,
+      background: {
+        ...template.config.background,
+        ...(overrides.background?.focalPoint
+          ? {
+              focalPoint: {
+                x: clamp(overrides.background.focalPoint.x, 0, 1),
+                y: clamp(overrides.background.focalPoint.y, 0, 1),
+              },
+            }
+          : {}),
+      },
       headline: nextHeadline,
       subheadline: nextSubheadline,
+      ...(nextInsetImage ? { insetImage: nextInsetImage } : {}),
     },
   };
 }

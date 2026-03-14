@@ -26,6 +26,10 @@ function escapeXml(value: string) {
     .replaceAll("'", "&apos;");
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function wrapText(text: string, lineLength: number) {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -75,6 +79,27 @@ async function loadImageBuffer(source?: string) {
   }
 
   return null;
+}
+
+async function buildBackgroundImage(source: Buffer, width: number, height: number, focalPoint?: { x: number; y: number }) {
+  const image = sharp(source);
+  const metadata = await image.metadata();
+  const sourceWidth = metadata.width ?? width;
+  const sourceHeight = metadata.height ?? height;
+  const scale = Math.max(width / sourceWidth, height / sourceHeight);
+  const resizedWidth = Math.max(Math.ceil(sourceWidth * scale), width);
+  const resizedHeight = Math.max(Math.ceil(sourceHeight * scale), height);
+
+  if (!focalPoint) {
+    return image.resize(width, height, { fit: "cover", position: "centre" }).png().toBuffer();
+  }
+
+  const focusX = clamp(focalPoint.x, 0, 1) * resizedWidth;
+  const focusY = clamp(focalPoint.y, 0, 1) * resizedHeight;
+  const left = clamp(Math.round(focusX - width / 2), 0, Math.max(resizedWidth - width, 0));
+  const top = clamp(Math.round(focusY - height / 2), 0, Math.max(resizedHeight - height, 0));
+
+  return image.resize(resizedWidth, resizedHeight).extract({ left, top, width, height }).png().toBuffer();
 }
 
 function buildGradientOverlay(width: number, height: number, opacity: number, startColor = "12,16,20", endColor = "8,10,14") {
@@ -363,7 +388,7 @@ export async function renderDraftPng({ draft, topic, template }: RenderInputs) {
   const backgroundInput =
     (await loadImageBuffer(topic.imageUrl)) ??
     Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#1d2830"/></svg>`);
-  const background = await sharp(backgroundInput).resize(width, height, { fit: "cover", position: "centre" }).png().toBuffer();
+  const background = await buildBackgroundImage(backgroundInput, width, height, template.config?.background.focalPoint);
 
   const headlineOverlay = await buildHeadlineStrip(template, draft);
   const subheadlineOverlay = await buildSubheadlineOverlay(template, draft, headlineOverlay);

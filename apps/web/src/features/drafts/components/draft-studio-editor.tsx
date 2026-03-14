@@ -23,7 +23,7 @@ type DraftStudioEditorProps = {
 };
 
 type PlacementMode = "feed" | "story";
-type EditableLayer = "headline" | "subheadline";
+type EditableLayer = "headline" | "subheadline" | "inset" | "background";
 type EditorInteraction =
   | {
       mode: "move" | "resize";
@@ -91,10 +91,44 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
   const [frameWidth, setFrameWidth] = useState(0);
 
   useEffect(() => {
-    setHeadlineSize(activeTemplate.config?.headline.fontSize ?? 72);
-    setSummarySize(activeTemplate.config?.subheadline.fontSize ?? 60);
-    setPlacementOverrides({});
-  }, [activeTemplate]);
+    const fallbackHeadlineSize = activeTemplate.config?.headline.fontSize ?? 72;
+    const fallbackSummarySize = activeTemplate.config?.subheadline.fontSize ?? 60;
+
+    try {
+      const raw = window.localStorage.getItem(buildEditorStorageKey(draft.id, selectedTemplateId));
+      if (!raw) {
+        setHeadlineSize(fallbackHeadlineSize);
+        setSummarySize(fallbackSummarySize);
+        setPlacementOverrides({});
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as {
+        headlineSize?: number;
+        summarySize?: number;
+        placementOverrides?: TemplatePlacementOverrides;
+      };
+
+      setHeadlineSize(parsed.headlineSize ?? fallbackHeadlineSize);
+      setSummarySize(parsed.summarySize ?? fallbackSummarySize);
+      setPlacementOverrides(parsed.placementOverrides ?? {});
+    } catch {
+      setHeadlineSize(fallbackHeadlineSize);
+      setSummarySize(fallbackSummarySize);
+      setPlacementOverrides({});
+    }
+  }, [activeTemplate, draft.id, selectedTemplateId]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      buildEditorStorageKey(draft.id, selectedTemplateId),
+      JSON.stringify({
+        headlineSize,
+        summarySize,
+        placementOverrides,
+      }),
+    );
+  }, [draft.id, headlineSize, placementOverrides, selectedTemplateId, summarySize]);
 
   const currentCaption = draft.captions[selectedCaption] ?? draft.captions[0];
   const isVerticalTemplate = activeTemplate.height > activeTemplate.width;
@@ -204,6 +238,16 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     fontSize: summarySize,
     paddingY: activeTemplate.config?.subheadline.paddingY ?? 0,
   };
+  const effectiveInset = {
+    x: placementOverrides.insetImage?.x ?? activeTemplate.config?.insetImage?.x ?? 0,
+    y: placementOverrides.insetImage?.y ?? activeTemplate.config?.insetImage?.y ?? 0,
+    size: placementOverrides.insetImage?.size ?? activeTemplate.config?.insetImage?.size ?? 180,
+    cornerRadius: activeTemplate.config?.insetImage?.cornerRadius ?? 999,
+  };
+  const effectiveFocalPoint = {
+    x: placementOverrides.background?.focalPoint?.x ?? activeTemplate.config?.background.focalPoint?.x ?? 0.5,
+    y: placementOverrides.background?.focalPoint?.y ?? activeTemplate.config?.background.focalPoint?.y ?? 0.5,
+  };
 
   useEffect(() => {
     if (!interaction) {
@@ -230,6 +274,37 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
               x: nextX,
               y: interaction.mode === "move" ? nextY : current.headline?.y ?? effectiveHeadline.y,
               width: nextWidth,
+            },
+          };
+        }
+
+        if (interaction.layer === "inset") {
+          const nextX = clamp(interaction.originX + deltaX, 0, activeTemplate.width - 80);
+          const nextY = clamp(interaction.originY + deltaY, 0, activeTemplate.height - 80);
+          const nextSize =
+            interaction.mode === "resize"
+              ? clamp(interaction.originWidth + deltaX, 80, Math.min(activeTemplate.width - nextX, activeTemplate.height - nextY))
+              : current.insetImage?.size ?? effectiveInset.size;
+
+          return {
+            ...current,
+            insetImage: {
+              ...(current.insetImage ?? {}),
+              x: nextX,
+              y: interaction.mode === "move" ? nextY : current.insetImage?.y ?? effectiveInset.y,
+              size: nextSize,
+            },
+          };
+        }
+
+        if (interaction.layer === "background") {
+          return {
+            ...current,
+            background: {
+              focalPoint: {
+                x: clamp((interaction.originX + deltaX) / activeTemplate.width, 0, 1),
+                y: clamp((interaction.originY + deltaY) / activeTemplate.height, 0, 1),
+              },
             },
           };
         }
@@ -261,13 +336,37 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
     };
-  }, [activeTemplate.height, activeTemplate.width, effectiveHeadline.width, effectiveHeadline.y, effectiveSubheadline.width, effectiveSubheadline.y, interaction, previewScale]);
+  }, [
+    activeTemplate.height,
+    activeTemplate.width,
+    effectiveFocalPoint.x,
+    effectiveFocalPoint.y,
+    effectiveHeadline.width,
+    effectiveHeadline.y,
+    effectiveInset.size,
+    effectiveInset.y,
+    effectiveSubheadline.width,
+    effectiveSubheadline.y,
+    interaction,
+    previewScale,
+  ]);
 
   function startInteraction(event: ReactPointerEvent<HTMLElement>, layer: EditableLayer, mode: "move" | "resize") {
     event.preventDefault();
     event.stopPropagation();
 
-    const source = layer === "headline" ? effectiveHeadline : effectiveSubheadline;
+    const source =
+      layer === "headline"
+        ? effectiveHeadline
+        : layer === "subheadline"
+          ? effectiveSubheadline
+          : layer === "inset"
+            ? effectiveInset
+            : {
+                x: effectiveFocalPoint.x * activeTemplate.width,
+                y: effectiveFocalPoint.y * activeTemplate.height,
+                width: 0,
+              };
     setInteraction({
       mode,
       layer,
@@ -457,6 +556,19 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
               <div className="pointer-events-none absolute inset-0">
                 <button
                   type="button"
+                  onPointerDown={(event) => startInteraction(event, "background", "move")}
+                  className="pointer-events-auto absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[rgba(15,17,21,0.62)] shadow-[0_8px_20px_rgba(15,17,21,0.25)]"
+                  style={{
+                    left: effectiveFocalPoint.x * activeTemplate.width * previewScale,
+                    top: effectiveFocalPoint.y * activeTemplate.height * previewScale,
+                  }}
+                >
+                  <span className="absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                    Image focus
+                  </span>
+                </button>
+                <button
+                  type="button"
                   onPointerDown={(event) => startInteraction(event, "headline", "move")}
                   className="pointer-events-auto absolute rounded-[1.1rem] border-2 border-white/80 bg-white/12 shadow-[0_8px_20px_rgba(15,17,21,0.22)]"
                   style={{
@@ -509,6 +621,28 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                     className="absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--navy)]"
                   />
                 </button>
+                {activeTemplate.config?.insetImage ? (
+                  <button
+                    type="button"
+                    onPointerDown={(event) => startInteraction(event, "inset", "move")}
+                    className="pointer-events-auto absolute border-2 border-white/90 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.2)]"
+                    style={{
+                      left: effectiveInset.x * previewScale,
+                      top: effectiveInset.y * previewScale,
+                      width: effectiveInset.size * previewScale,
+                      height: effectiveInset.size * previewScale,
+                      borderRadius: Math.min(effectiveInset.cornerRadius, effectiveInset.size / 2) * previewScale,
+                    }}
+                  >
+                    <span className="absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                      Inset image
+                    </span>
+                    <span
+                      onPointerDown={(event) => startInteraction(event, "inset", "resize")}
+                      className="absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--success)]"
+                    />
+                  </button>
+                ) : null}
               </div>
             </div>
             {previewPending ? <p className="mx-auto mt-3 max-w-[560px] text-xs uppercase tracking-[0.18em] text-white/56">Updating preview…</p> : null}
@@ -854,6 +988,10 @@ function buildSnapshotKey(input: Record<string, string | number>) {
   return Object.entries(input)
     .map(([key, value]) => `${key}:${value}`)
     .join("|");
+}
+
+function buildEditorStorageKey(draftId: string, templateId: string) {
+  return `graffiti-run-draft-editor:${draftId}:${templateId}`;
 }
 
 function clamp(value: number, min: number, max: number) {

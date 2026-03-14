@@ -140,6 +140,10 @@ export type TemplateRenderConfig = {
 export type TemplatePlacementOverrides = {
   headline?: Partial<Pick<TemplateRenderConfig["headline"], "x" | "y" | "width" | "fontSize" | "rotation">>;
   subheadline?: Partial<Pick<TemplateRenderConfig["subheadline"], "x" | "y" | "width" | "fontSize">>;
+  insetImage?: Partial<Pick<NonNullable<TemplateRenderConfig["insetImage"]>, "x" | "y" | "size">>;
+  background?: {
+    focalPoint?: { x: number; y: number };
+  };
 };
 
 export type PublishJob = {

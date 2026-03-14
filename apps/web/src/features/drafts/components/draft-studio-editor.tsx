@@ -570,7 +570,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 <button
                   type="button"
                   onPointerDown={(event) => startInteraction(event, "headline", "move")}
-                  className="pointer-events-auto absolute rounded-[1.1rem] border-2 border-white/80 bg-white/12 shadow-[0_8px_20px_rgba(15,17,21,0.22)]"
+                  className="pointer-events-auto absolute overflow-hidden rounded-[1.1rem] border-2 border-white/80 bg-white/12 shadow-[0_8px_20px_rgba(15,17,21,0.22)]"
                   style={{
                     left: effectiveHeadline.x * previewScale,
                     top: effectiveHeadline.y * previewScale,
@@ -587,9 +587,32 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                     transformOrigin: "top left",
                   }}
                 >
+                  <div className="absolute inset-0 rounded-[1rem] bg-white/92" />
                   <span className="absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
                     Headline
                   </span>
+                  <div
+                    className="absolute inset-x-0 bottom-0 text-left font-semibold text-[#0f1115]"
+                    style={{
+                      paddingLeft: (activeTemplate.config?.headline.paddingX ?? 0) * previewScale,
+                      paddingRight: (activeTemplate.config?.headline.paddingX ?? 0) * previewScale,
+                      paddingTop: 24 * previewScale,
+                      paddingBottom: (activeTemplate.config?.headline.paddingY ?? 0) * previewScale,
+                      fontSize: effectiveHeadline.fontSize * previewScale,
+                      lineHeight: 1.08,
+                    }}
+                  >
+                    {wrapTextForEstimate(
+                      headline,
+                      activeTemplate.templateType === "story"
+                        ? Math.max(Math.round(effectiveHeadline.width / 34), 16)
+                        : Math.max(Math.round(effectiveHeadline.width / 32), 18),
+                    )
+                      .slice(0, 3)
+                      .map((line, index) => (
+                        <div key={`${line}-${index}`}>{line}</div>
+                      ))}
+                  </div>
                   <span
                     onPointerDown={(event) => startInteraction(event, "headline", "resize")}
                     className="absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--accent)]"
@@ -598,7 +621,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 <button
                   type="button"
                   onPointerDown={(event) => startInteraction(event, "subheadline", "move")}
-                  className="pointer-events-auto absolute rounded-[1rem] border-2 border-white/70 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.18)]"
+                  className="pointer-events-auto absolute overflow-hidden rounded-[1rem] border-2 border-white/70 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.18)]"
                   style={{
                     left: effectiveSubheadline.x * previewScale,
                     top: effectiveSubheadline.y * previewScale,
@@ -613,9 +636,37 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                       ) * previewScale,
                   }}
                 >
+                  {activeTemplate.config?.subheadline.backgroundColor ? (
+                    <div
+                      className="absolute inset-0"
+                      style={{ backgroundColor: activeTemplate.config.subheadline.backgroundColor }}
+                    />
+                  ) : null}
                   <span className="absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
                     Secondary
                   </span>
+                  <div
+                    className="absolute inset-x-0 bottom-0 text-left font-semibold text-white"
+                    style={{
+                      paddingLeft: (activeTemplate.config?.subheadline.paddingX ?? 0) * previewScale,
+                      paddingRight: (activeTemplate.config?.subheadline.paddingX ?? 0) * previewScale,
+                      paddingTop: 24 * previewScale,
+                      paddingBottom: (activeTemplate.config?.subheadline.paddingY ?? 0) * previewScale,
+                      fontSize: effectiveSubheadline.fontSize * previewScale,
+                      lineHeight: 1.08,
+                    }}
+                  >
+                    {wrapTextForEstimate(
+                      summary,
+                      activeTemplate.templateType === "story"
+                        ? Math.max(Math.round(effectiveSubheadline.width / 34), 16)
+                        : Math.max(Math.round(effectiveSubheadline.width / 32), 18),
+                    )
+                      .slice(0, 3)
+                      .map((line, index) => (
+                        <div key={`${line}-${index}`}>{line}</div>
+                      ))}
+                  </div>
                   <span
                     onPointerDown={(event) => startInteraction(event, "subheadline", "resize")}
                     className="absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--navy)]"

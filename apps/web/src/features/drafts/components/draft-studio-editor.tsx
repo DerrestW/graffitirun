@@ -282,6 +282,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
           <div className="rounded-[2rem] bg-[#10171c] p-4 shadow-[0_28px_80px_rgba(14,23,29,0.28)]">
             <div className="mx-auto overflow-hidden rounded-[1.6rem] bg-black" style={{ width: previewMaxWidth, maxWidth: "100%" }}>
               <img
+                key={previewImageUrl}
                 src={previewImageUrl}
                 alt={`${topic.title} preview`}
                 className="block h-auto w-full"

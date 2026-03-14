@@ -251,10 +251,10 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
           throw new Error(publishResult.error ?? "Failed to publish finalized image.");
         }
 
-        setAssetStatus("Finalized JPEG saved and publish started.");
+        setAssetStatus("Final image approved and publish started.");
         router.push(`/drafts/${draft.id}?status=${publishResult.status ?? "publish_executed"}`);
       } else {
-        setAssetStatus("Finalized square JPEG saved for publishing.");
+        setAssetStatus("Final image approved for publishing.");
         router.push(`/drafts/${draft.id}?status=${result.status ?? "draft_finalized"}`);
       }
 
@@ -338,7 +338,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 disabled={finalizeState !== "idle"}
                 className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {finalizeState === "saving" ? "Saving..." : "Save finalized JPEG"}
+                {finalizeState === "saving" ? "Saving..." : "Approve final image"}
               </button>
               <button
                 type="button"
@@ -346,7 +346,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 disabled={finalizeState !== "idle"}
                 className="rounded-full bg-[color:var(--success)] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {finalizeState === "publishing" ? "Publishing..." : "Save & publish now"}
+                {finalizeState === "publishing" ? "Publishing..." : "Approve & publish now"}
               </button>
               <button
                 type="button"

@@ -229,6 +229,13 @@ async function buildHeadlineStrip(template: Template, draft: Draft): Promise<Hea
     color: headline.color,
   });
   const textMeta = await sharp(textBuffer).metadata();
+  const dynamicStripWidth = Math.min(
+    headline.width,
+    Math.max(
+      Math.ceil((textMeta.width ?? headline.width - headline.paddingX * 2) + headline.paddingX * 2),
+      Math.ceil(headline.width * 0.42),
+    ),
+  );
   const stripHeight = Math.max(
     Math.ceil((textMeta.height ?? lines.length * lineHeight) + headline.paddingY * 2),
     Math.ceil(lines.length * lineHeight + headline.paddingY * 2),
@@ -237,7 +244,7 @@ async function buildHeadlineStrip(template: Template, draft: Draft): Promise<Hea
 
   const strip = await sharp({
     create: {
-      width: headline.width,
+      width: dynamicStripWidth,
       height: Math.ceil(stripHeight),
       channels: 4,
       background: { r: 0, g: 0, b: 0, alpha: 0 },
@@ -246,8 +253,8 @@ async function buildHeadlineStrip(template: Template, draft: Draft): Promise<Hea
     .composite([
       {
         input: Buffer.from(`
-          <svg xmlns="http://www.w3.org/2000/svg" width="${headline.width}" height="${stripHeight}" viewBox="0 0 ${headline.width} ${stripHeight}">
-            <rect width="${headline.width}" height="${stripHeight}" rx="${headline.radius ?? 14}" fill="${headline.backgroundColor}" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="${dynamicStripWidth}" height="${stripHeight}" viewBox="0 0 ${dynamicStripWidth} ${stripHeight}">
+            <rect width="${dynamicStripWidth}" height="${stripHeight}" rx="${headline.radius ?? 14}" fill="${headline.backgroundColor}" />
           </svg>
         `),
       },
@@ -275,7 +282,7 @@ async function buildHeadlineStrip(template: Template, draft: Draft): Promise<Hea
     input: rotated,
     top: headline.y,
     left: headline.x,
-    width: rotatedMeta.width ?? headline.width,
+    width: rotatedMeta.width ?? dynamicStripWidth,
     height: rotatedMeta.height ?? Math.ceil(stripHeight),
   };
 }

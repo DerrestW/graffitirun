@@ -115,6 +115,38 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
   const captionExport = [captionText, currentCaption?.ctaText, currentCaption?.hashtagsText]
     .filter(Boolean)
     .join("\n\n");
+  const [displayedPreviewUrl, setDisplayedPreviewUrl] = useState(previewImageUrl);
+  const [previewPending, setPreviewPending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (previewImageUrl === displayedPreviewUrl) {
+      setPreviewPending(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setPreviewPending(true);
+    const image = new window.Image();
+    image.onload = () => {
+      if (!cancelled) {
+        setDisplayedPreviewUrl(previewImageUrl);
+        setPreviewPending(false);
+      }
+    };
+    image.onerror = () => {
+      if (!cancelled) {
+        setPreviewPending(false);
+      }
+    };
+    image.src = previewImageUrl;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [displayedPreviewUrl, previewImageUrl]);
 
   async function handleImageUpload(
     event: ChangeEvent<HTMLInputElement>,
@@ -282,12 +314,12 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
           <div className="rounded-[2rem] bg-[#10171c] p-4 shadow-[0_28px_80px_rgba(14,23,29,0.28)]">
             <div className="mx-auto overflow-hidden rounded-[1.6rem] bg-black" style={{ width: previewMaxWidth, maxWidth: "100%" }}>
               <img
-                key={previewImageUrl}
-                src={previewImageUrl}
+                src={displayedPreviewUrl}
                 alt={`${topic.title} preview`}
-                className="block h-auto w-full"
+                className={`block h-auto w-full transition-opacity duration-200 ${previewPending ? "opacity-80" : "opacity-100"}`}
               />
             </div>
+            {previewPending ? <p className="mx-auto mt-3 max-w-[560px] text-xs uppercase tracking-[0.18em] text-white/56">Updating preview…</p> : null}
             {placement === "feed" ? (
               <div className="mx-auto mt-4 max-w-[560px] rounded-[1.25rem] bg-white px-4 py-4 text-sm text-[color:var(--foreground)]">
                 <p className="font-semibold text-[color:var(--foreground)]">{currentCaption?.variantName ?? "Selected caption"}</p>

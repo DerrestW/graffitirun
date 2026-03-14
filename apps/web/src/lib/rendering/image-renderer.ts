@@ -16,6 +16,7 @@ type RenderInputs = {
   };
   useBrandFonts?: boolean;
   omitTextLayers?: boolean;
+  omitEditableLayers?: boolean;
 };
 
 function escapeXml(value: string) {
@@ -383,7 +384,7 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft, headlin
   };
 }
 
-export async function renderDraftPng({ draft, topic, template, omitTextLayers = false }: RenderInputs) {
+export async function renderDraftPng({ draft, topic, template, omitTextLayers = false, omitEditableLayers = false }: RenderInputs) {
   const width = template.width;
   const height = template.height;
   const backgroundInput =
@@ -416,7 +417,7 @@ export async function renderDraftPng({ draft, topic, template, omitTextLayers = 
       left: 0,
     }),
     buildLogoOverlay(template),
-    buildInsetOverlay(template, topic),
+    omitEditableLayers ? Promise.resolve(null) : buildInsetOverlay(template, topic),
     Promise.resolve(adjustedHeadlineOverlay),
     Promise.resolve(subheadlineOverlay),
   ]);

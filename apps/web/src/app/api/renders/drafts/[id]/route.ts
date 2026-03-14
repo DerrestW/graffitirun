@@ -71,6 +71,7 @@ export async function GET(request: Request, { params }: RouteProps) {
     };
     const useBrandFonts = searchParams.get("useBrandFonts") !== "false";
     const omitTextLayers = searchParams.get("omitTextLayers") === "true";
+    const omitEditableLayers = searchParams.get("omitEditableLayers") === "true";
 
     const image = await renderDraftPng({
       draft: overriddenDraft,
@@ -79,6 +80,7 @@ export async function GET(request: Request, { params }: RouteProps) {
       brandFonts,
       useBrandFonts,
       omitTextLayers,
+      omitEditableLayers,
     });
     const body =
       format === "jpeg" || format === "jpg"

@@ -172,6 +172,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     useBrandFonts: true,
     placementOverrides,
     omitTextLayers: true,
+    omitEditableLayers: true,
   });
   const previewImageUrl = `${renderBaseUrl}&format=jpeg&snapshot=${buildSnapshotKey({
     headline,
@@ -677,7 +678,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                   <button
                     type="button"
                     onPointerDown={(event) => startInteraction(event, "inset", "move")}
-                    className="pointer-events-auto absolute border-2 border-white/90 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.2)]"
+                    className="pointer-events-auto absolute z-20 overflow-hidden border-2 border-white/90 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.2)]"
                     style={{
                       left: effectiveInset.x * previewScale,
                       top: effectiveInset.y * previewScale,
@@ -686,6 +687,12 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                       borderRadius: Math.min(effectiveInset.cornerRadius, effectiveInset.size / 2) * previewScale,
                     }}
                   >
+                    <img
+                      src={currentInsetUrl}
+                      alt="Inset preview"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/10" />
                     <span className="absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
                       Inset image
                     </span>
@@ -985,6 +992,7 @@ function buildRenderUrl({
   useBrandFonts,
   placementOverrides,
   omitTextLayers,
+  omitEditableLayers,
 }: {
   draftId: string;
   headline: string;
@@ -1001,6 +1009,7 @@ function buildRenderUrl({
   useBrandFonts: boolean;
   placementOverrides: TemplatePlacementOverrides;
   omitTextLayers?: boolean;
+  omitEditableLayers?: boolean;
 }) {
   const params = new URLSearchParams({
     headline,
@@ -1029,6 +1038,10 @@ function buildRenderUrl({
 
   if (omitTextLayers) {
     params.set("omitTextLayers", "true");
+  }
+
+  if (omitEditableLayers) {
+    params.set("omitEditableLayers", "true");
   }
 
   return `/api/renders/drafts/${draftId}?${params.toString()}`;

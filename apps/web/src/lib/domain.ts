@@ -137,6 +137,11 @@ export type TemplateRenderConfig = {
   };
 };
 
+export type TemplatePlacementOverrides = {
+  headline?: Partial<Pick<TemplateRenderConfig["headline"], "x" | "y" | "width" | "fontSize" | "rotation">>;
+  subheadline?: Partial<Pick<TemplateRenderConfig["subheadline"], "x" | "y" | "width" | "fontSize">>;
+};
+
 export type PublishJob = {
   id: string;
   workspaceId: string;

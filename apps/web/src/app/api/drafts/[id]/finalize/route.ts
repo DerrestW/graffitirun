@@ -6,8 +6,10 @@ import { getDraftDetailsById } from "@/features/drafts/draft-service";
 import { customTemplateToTemplate, normalizeCustomTemplate, type CustomTemplate } from "@/features/templates/custom-template";
 import { listTemplates } from "@/features/templates/template-service";
 import { listTopics } from "@/features/topics/topic-service";
+import type { TemplatePlacementOverrides } from "@/lib/domain";
 import { getTopicById, getWorkspaceContext } from "@/lib/db/queries";
 import { renderDraftPng } from "@/lib/rendering/image-renderer";
+import { applyPlacementOverrides } from "@/lib/rendering/placement-overrides";
 import { createAdminSupabaseClient } from "@/lib/supabase/server";
 
 type RouteProps = {
@@ -32,6 +34,7 @@ export async function POST(request: Request, { params }: RouteProps) {
       subheadingFont?: string;
       bodyFont?: string;
       useBrandFonts?: boolean;
+      placementOverrides?: TemplatePlacementOverrides | null;
     };
 
     const [draft, templates, topics] = await Promise.all([getDraftDetailsById(id), listTemplates(), listTopics()]);
@@ -84,11 +87,12 @@ export async function POST(request: Request, { params }: RouteProps) {
           },
         }
       : template;
+    const finalizedTemplate = applyPlacementOverrides(sizedTemplate, body.placementOverrides);
 
     const png = await renderDraftPng({
       draft: finalizedDraft,
       topic: finalizedTopic,
-      template: sizedTemplate,
+      template: finalizedTemplate,
       brandFonts: {
         heading: body.headingFont,
         subheading: body.subheadingFont,

@@ -5,7 +5,9 @@ import { customTemplateToTemplate, normalizeCustomTemplate, type CustomTemplate 
 import { listTemplates } from "@/features/templates/template-service";
 import { listTopics } from "@/features/topics/topic-service";
 import { getTopicById } from "@/lib/db/queries";
+import type { TemplatePlacementOverrides } from "@/lib/domain";
 import { renderDraftPng } from "@/lib/rendering/image-renderer";
+import { applyPlacementOverrides } from "@/lib/rendering/placement-overrides";
 
 type RouteProps = {
   params: Promise<{ id: string }>;
@@ -45,7 +47,8 @@ export async function GET(request: Request, { params }: RouteProps) {
     const headlineSize = Number(searchParams.get("headlineSize") ?? "");
     const summarySize = Number(searchParams.get("summarySize") ?? "");
     const format = searchParams.get("format") ?? "png";
-    const overriddenTemplate = {
+    const placementOverrides = parsePlacementOverrides(searchParams.get("placementOverrides"));
+    const overriddenTemplate = applyPlacementOverrides({
       ...template,
       config: template.config
         ? {
@@ -60,7 +63,7 @@ export async function GET(request: Request, { params }: RouteProps) {
             },
           }
         : template.config,
-    };
+    }, placementOverrides);
 
     const brandFonts = {
       heading: searchParams.get("headingFont") ?? undefined,
@@ -91,6 +94,14 @@ export async function GET(request: Request, { params }: RouteProps) {
 function parseCustomTemplate(raw: string): CustomTemplate {
   const parsed = JSON.parse(raw) as Partial<CustomTemplate>;
   return normalizeCustomTemplate(parsed);
+}
+
+function parsePlacementOverrides(raw: string | null): TemplatePlacementOverrides | null {
+  if (!raw) {
+    return null;
+  }
+
+  return JSON.parse(raw) as TemplatePlacementOverrides;
 }
 
 function buildFallbackTopicFromDraft(draft: NonNullable<Awaited<ReturnType<typeof getDraftDetailsById>>>) {

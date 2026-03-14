@@ -553,7 +553,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 alt={`${topic.title} preview`}
                 className={`block h-auto w-full transition-opacity duration-200 ${previewPending ? "opacity-80" : "opacity-100"}`}
               />
-              <div className="pointer-events-none absolute inset-0">
+              <div className="pointer-events-none absolute inset-0 z-20">
                 <button
                   type="button"
                   onPointerDown={(event) => startInteraction(event, "background", "move")}
@@ -570,7 +570,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 <button
                   type="button"
                   onPointerDown={(event) => startInteraction(event, "headline", "move")}
-                  className="pointer-events-auto absolute overflow-hidden rounded-[1.1rem] border-2 border-white/80 bg-white/12 shadow-[0_8px_20px_rgba(15,17,21,0.22)]"
+                  className="pointer-events-auto absolute z-20 overflow-hidden rounded-[1.1rem] border-2 border-white/80 bg-white/12 shadow-[0_8px_20px_rgba(15,17,21,0.22)]"
                   style={{
                     left: effectiveHeadline.x * previewScale,
                     top: effectiveHeadline.y * previewScale,
@@ -587,12 +587,12 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                     transformOrigin: "top left",
                   }}
                 >
-                  <div className="absolute inset-0 rounded-[1rem] bg-white/92" />
+                  <div className="absolute inset-0 z-0 rounded-[1rem] bg-white/95" />
                   <span className="absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
                     Headline
                   </span>
                   <div
-                    className="absolute inset-x-0 bottom-0 text-left font-semibold text-[#0f1115]"
+                    className="absolute inset-0 z-10 flex flex-col justify-end text-left font-semibold text-[#0f1115]"
                     style={{
                       paddingLeft: (activeTemplate.config?.headline.paddingX ?? 0) * previewScale,
                       paddingRight: (activeTemplate.config?.headline.paddingX ?? 0) * previewScale,
@@ -621,7 +621,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 <button
                   type="button"
                   onPointerDown={(event) => startInteraction(event, "subheadline", "move")}
-                  className="pointer-events-auto absolute overflow-hidden rounded-[1rem] border-2 border-white/70 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.18)]"
+                  className="pointer-events-auto absolute z-20 overflow-hidden rounded-[1rem] border-2 border-white/70 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.18)]"
                   style={{
                     left: effectiveSubheadline.x * previewScale,
                     top: effectiveSubheadline.y * previewScale,
@@ -638,7 +638,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                 >
                   {activeTemplate.config?.subheadline.backgroundColor ? (
                     <div
-                      className="absolute inset-0"
+                      className="absolute inset-0 z-0"
                       style={{ backgroundColor: activeTemplate.config.subheadline.backgroundColor }}
                     />
                   ) : null}
@@ -646,7 +646,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
                     Secondary
                   </span>
                   <div
-                    className="absolute inset-x-0 bottom-0 text-left font-semibold text-white"
+                    className="absolute inset-0 z-10 flex flex-col justify-end text-left font-semibold text-white"
                     style={{
                       paddingLeft: (activeTemplate.config?.subheadline.paddingX ?? 0) * previewScale,
                       paddingRight: (activeTemplate.config?.subheadline.paddingX ?? 0) * previewScale,

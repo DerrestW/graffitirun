@@ -171,6 +171,7 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     subheadingFont: brandFonts.subheading,
     useBrandFonts: true,
     placementOverrides,
+    omitTextLayers: true,
   });
   const previewImageUrl = `${renderBaseUrl}&format=jpeg&snapshot=${buildSnapshotKey({
     headline,
@@ -983,6 +984,7 @@ function buildRenderUrl({
   subheadingFont,
   useBrandFonts,
   placementOverrides,
+  omitTextLayers,
 }: {
   draftId: string;
   headline: string;
@@ -998,6 +1000,7 @@ function buildRenderUrl({
   subheadingFont: string;
   useBrandFonts: boolean;
   placementOverrides: TemplatePlacementOverrides;
+  omitTextLayers?: boolean;
 }) {
   const params = new URLSearchParams({
     headline,
@@ -1022,6 +1025,10 @@ function buildRenderUrl({
 
   if (placementOverrides.headline || placementOverrides.subheadline) {
     params.set("placementOverrides", JSON.stringify(placementOverrides));
+  }
+
+  if (omitTextLayers) {
+    params.set("omitTextLayers", "true");
   }
 
   return `/api/renders/drafts/${draftId}?${params.toString()}`;

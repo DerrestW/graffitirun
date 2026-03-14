@@ -70,8 +70,16 @@ export async function GET(request: Request, { params }: RouteProps) {
       subheading: searchParams.get("subheadingFont") ?? undefined,
     };
     const useBrandFonts = searchParams.get("useBrandFonts") !== "false";
+    const omitTextLayers = searchParams.get("omitTextLayers") === "true";
 
-    const image = await renderDraftPng({ draft: overriddenDraft, topic: overriddenTopic, template: overriddenTemplate, brandFonts, useBrandFonts });
+    const image = await renderDraftPng({
+      draft: overriddenDraft,
+      topic: overriddenTopic,
+      template: overriddenTemplate,
+      brandFonts,
+      useBrandFonts,
+      omitTextLayers,
+    });
     const body =
       format === "jpeg" || format === "jpg"
         ? await sharp(image).flatten({ background: "#ffffff" }).jpeg({ quality: 92, chromaSubsampling: "4:4:4" }).toBuffer()

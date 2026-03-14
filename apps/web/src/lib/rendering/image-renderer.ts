@@ -15,6 +15,7 @@ type RenderInputs = {
     body?: string | null;
   };
   useBrandFonts?: boolean;
+  omitTextLayers?: boolean;
 };
 
 function escapeXml(value: string) {
@@ -382,7 +383,7 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft, headlin
   };
 }
 
-export async function renderDraftPng({ draft, topic, template }: RenderInputs) {
+export async function renderDraftPng({ draft, topic, template, omitTextLayers = false }: RenderInputs) {
   const width = template.width;
   const height = template.height;
   const backgroundInput =
@@ -390,8 +391,8 @@ export async function renderDraftPng({ draft, topic, template }: RenderInputs) {
     Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="#1d2830"/></svg>`);
   const background = await buildBackgroundImage(backgroundInput, width, height, template.config?.background.focalPoint);
 
-  const headlineOverlay = await buildHeadlineStrip(template, draft);
-  const subheadlineOverlay = await buildSubheadlineOverlay(template, draft, headlineOverlay);
+  const headlineOverlay = omitTextLayers ? null : await buildHeadlineStrip(template, draft);
+  const subheadlineOverlay = omitTextLayers ? null : await buildSubheadlineOverlay(template, draft, headlineOverlay);
   const adjustedHeadlineOverlay =
     headlineOverlay && subheadlineOverlay && headlineOverlay.top + headlineOverlay.height > subheadlineOverlay.top
       ? {

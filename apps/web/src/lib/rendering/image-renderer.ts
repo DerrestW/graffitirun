@@ -180,6 +180,54 @@ type HeadlineOverlay = {
   height: number;
 };
 
+function buildMultilineTextSvg({
+  width,
+  height,
+  lines,
+  fontSize,
+  lineHeight,
+  paddingX,
+  paddingY,
+  color,
+  backgroundColor,
+  radius,
+}: {
+  width: number;
+  height: number;
+  lines: string[];
+  fontSize: number;
+  lineHeight: number;
+  paddingX: number;
+  paddingY: number;
+  color: string;
+  backgroundColor?: string;
+  radius?: number;
+}) {
+  const rect = backgroundColor
+    ? `<rect width="${width}" height="${height}" rx="${radius ?? 0}" fill="${backgroundColor}" />`
+    : "";
+
+  const tspans = lines
+    .map((line, index) => {
+      const baseline = paddingY + fontSize + index * lineHeight;
+      return `<tspan x="${paddingX}" y="${baseline}">${escapeXml(line)}</tspan>`;
+    })
+    .join("");
+
+  return Buffer.from(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      ${rect}
+      <text
+        xml:space="preserve"
+        fill="${color}"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="${fontSize}"
+        font-weight="700"
+      >${tspans}</text>
+    </svg>
+  `);
+}
+
 async function buildHeadlineStrip(template: Template, draft: Draft): Promise<HeadlineOverlay | null> {
   const headline = template.config?.headline;
   if (!headline) {
@@ -189,47 +237,25 @@ async function buildHeadlineStrip(template: Template, draft: Draft): Promise<Hea
   const lineLength = template.templateType === "story" ? 26 : 30;
   const lines = wrapText(draft.selectedHeadline, lineLength).slice(0, 2);
   const lineHeight = headline.fontSize * 1.08;
-  const textBuffer = await sharp({
-    text: {
-      text: `<span foreground="${headline.color}">${escapeXml(lines.join("\n"))}</span>`,
-      width: Math.max(headline.width - headline.paddingX * 2, 100),
-      rgba: true,
-      align: "left",
-      wrap: "word-char",
-      font: `sans bold ${Math.max(Math.round(headline.fontSize), 16)}`,
-      spacing: Math.max(Math.round((lineHeight - headline.fontSize) * 0.75), 0),
-    },
-  })
-    .png()
-    .toBuffer();
-  const textMeta = await sharp(textBuffer).metadata();
   const stripHeight = Math.max(
-    Math.ceil((textMeta.height ?? lines.length * lineHeight) + headline.paddingY * 2),
     Math.ceil(lines.length * lineHeight + headline.paddingY * 2),
+    headline.fontSize + headline.paddingY * 2,
   );
 
-  const strip = await sharp({
-    create: {
+  const strip = await sharp(
+    buildMultilineTextSvg({
       width: headline.width,
       height: Math.ceil(stripHeight),
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite([
-      {
-        input: Buffer.from(`
-          <svg xmlns="http://www.w3.org/2000/svg" width="${headline.width}" height="${stripHeight}" viewBox="0 0 ${headline.width} ${stripHeight}">
-            <rect width="${headline.width}" height="${stripHeight}" rx="${headline.radius ?? 14}" fill="${headline.backgroundColor}" />
-          </svg>
-        `),
-      },
-      {
-        input: textBuffer,
-        top: headline.paddingY,
-        left: headline.paddingX,
-      },
-    ])
+      lines,
+      fontSize: Math.max(Math.round(headline.fontSize), 16),
+      lineHeight,
+      paddingX: headline.paddingX,
+      paddingY: headline.paddingY,
+      color: headline.color,
+      backgroundColor: headline.backgroundColor,
+      radius: headline.radius ?? 14,
+    }),
+  )
     .png()
     .toBuffer();
 
@@ -264,78 +290,28 @@ async function buildSubheadlineOverlay(template: Template, draft: Draft, headlin
   const lineHeight = subheadline.fontSize * 1.08;
   const paddingX = subheadline.paddingX ?? 0;
   const paddingY = subheadline.paddingY ?? 0;
-  const keywordSet = new Set(emphasis.keywords.map((word) => word.toLowerCase()));
-  const mode = emphasis.mode ?? "keywords";
-  const emphasisColor = emphasis.color;
   const subheadlineColor = subheadline.color;
   const backgroundColor = subheadline.backgroundColor;
   const radius = subheadline.radius ?? 18;
-
-  function renderLine(line: string) {
-    const words = line.split(" ");
-
-    return words
-      .map((word, index) => {
-        const cleaned = word.replace(/[^a-z0-9]/gi, "").toLowerCase();
-        const fill =
-          mode === "every_fifth"
-            ? (index + 1) % 5 === 0
-              ? emphasisColor
-              : subheadlineColor
-            : keywordSet.has(cleaned)
-              ? emphasisColor
-              : subheadlineColor;
-        return `<span foreground="${fill}">${escapeXml(word)}</span>`;
-      })
-      .join(" ");
-  }
-
-  const textMarkup = `<span>${lines.map((line) => renderLine(line)).join("\n")}</span>`;
-  const textBuffer = await sharp({
-    text: {
-      text: textMarkup,
-      width: Math.max(subheadline.width - paddingX * 2, 120),
-      rgba: true,
-      align: "left",
-      wrap: "word-char",
-      font: `sans bold ${Math.max(Math.round(subheadline.fontSize), 16)}`,
-      spacing: Math.max(Math.round((lineHeight - subheadline.fontSize) * 0.75), 0),
-    },
-  })
-    .ensureAlpha()
-    .png()
-    .toBuffer();
-  const textMeta = await sharp(textBuffer).metadata();
   const height = Math.max(
-    Math.ceil((textMeta.height ?? lines.length * lineHeight) + paddingY * 2),
     Math.ceil(lines.length * lineHeight + 24 + paddingY * 2),
+    subheadline.fontSize + paddingY * 2,
   );
 
-  const composites: sharp.OverlayOptions[] = [];
-  if (backgroundColor) {
-    composites.push({
-      input: Buffer.from(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="${subheadline.width}" height="${height}" viewBox="0 0 ${subheadline.width} ${height}">
-          <rect width="${subheadline.width}" height="${height}" rx="${radius}" fill="${backgroundColor}" />
-        </svg>
-      `),
-    });
-  }
-  composites.push({
-    input: textBuffer,
-    top: paddingY,
-    left: paddingX,
-  });
-
-  const overlay = await sharp({
-    create: {
+  const overlay = await sharp(
+    buildMultilineTextSvg({
       width: subheadline.width,
       height: Math.ceil(height),
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite(composites)
+      lines,
+      fontSize: Math.max(Math.round(subheadline.fontSize), 16),
+      lineHeight,
+      paddingX,
+      paddingY,
+      color: subheadlineColor,
+      backgroundColor,
+      radius,
+    }),
+  )
     .png()
     .toBuffer();
   const minimumTop =

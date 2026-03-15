@@ -1,10 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import type { ChangeEvent, PointerEvent as ReactPointerEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Draft, Template, TemplatePlacementOverrides, Topic } from "@/lib/domain";
+import type { Draft, Template, Topic } from "@/lib/domain";
 import {
   customTemplateStorageKey,
   customTemplateToTemplate,
@@ -23,22 +23,9 @@ type DraftStudioEditorProps = {
 };
 
 type PlacementMode = "feed" | "story";
-type EditableLayer = "headline" | "subheadline" | "inset" | "background";
-type EditorInteraction =
-  | {
-      mode: "move" | "resize";
-      layer: EditableLayer;
-      startX: number;
-      startY: number;
-      originX: number;
-      originY: number;
-      originWidth: number;
-    }
-  | null;
 
 export function DraftStudioEditor({ draft, template, templates, topic, initialTemplateId }: DraftStudioEditorProps) {
   const router = useRouter();
-  const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const [selectedVersion, setSelectedVersion] = useState(0);
   const [selectedCaption, setSelectedCaption] = useState(0);
   const [placement, setPlacement] = useState<PlacementMode>("feed");
@@ -86,74 +73,15 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
   const activeTemplate = allTemplates.find((item) => item.id === selectedTemplateId) ?? template;
   const [headlineSize, setHeadlineSize] = useState(activeTemplate.config?.headline.fontSize ?? 72);
   const [summarySize, setSummarySize] = useState(activeTemplate.config?.subheadline.fontSize ?? 60);
-  const [placementOverrides, setPlacementOverrides] = useState<TemplatePlacementOverrides>({});
-  const [interaction, setInteraction] = useState<EditorInteraction>(null);
-  const [frameWidth, setFrameWidth] = useState(0);
 
   useEffect(() => {
-    const fallbackHeadlineSize = activeTemplate.config?.headline.fontSize ?? 72;
-    const fallbackSummarySize = activeTemplate.config?.subheadline.fontSize ?? 60;
-
-    try {
-      const raw = window.localStorage.getItem(buildEditorStorageKey(draft.id, selectedTemplateId));
-      if (!raw) {
-        setHeadlineSize(fallbackHeadlineSize);
-        setSummarySize(fallbackSummarySize);
-        setPlacementOverrides({});
-        return;
-      }
-
-      const parsed = JSON.parse(raw) as {
-        headlineSize?: number;
-        summarySize?: number;
-        placementOverrides?: TemplatePlacementOverrides;
-      };
-
-      setHeadlineSize(parsed.headlineSize ?? fallbackHeadlineSize);
-      setSummarySize(parsed.summarySize ?? fallbackSummarySize);
-      setPlacementOverrides(parsed.placementOverrides ?? {});
-    } catch {
-      setHeadlineSize(fallbackHeadlineSize);
-      setSummarySize(fallbackSummarySize);
-      setPlacementOverrides({});
-    }
-  }, [activeTemplate, draft.id, selectedTemplateId]);
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      buildEditorStorageKey(draft.id, selectedTemplateId),
-      JSON.stringify({
-        headlineSize,
-        summarySize,
-        placementOverrides,
-      }),
-    );
-  }, [draft.id, headlineSize, placementOverrides, selectedTemplateId, summarySize]);
+    setHeadlineSize(activeTemplate.config?.headline.fontSize ?? 72);
+    setSummarySize(activeTemplate.config?.subheadline.fontSize ?? 60);
+  }, [activeTemplate]);
 
   const currentCaption = draft.captions[selectedCaption] ?? draft.captions[0];
   const isVerticalTemplate = activeTemplate.height > activeTemplate.width;
   const previewMaxWidth = placement === "story" || isVerticalTemplate ? 360 : 560;
-  useEffect(() => {
-    setFrameWidth(previewMaxWidth);
-  }, [previewMaxWidth]);
-
-  useEffect(() => {
-    const frame = previewFrameRef.current;
-    if (!frame || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setFrameWidth(entry.contentRect.width);
-      }
-    });
-
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, []);
-
   const currentBackgroundUrl = backgroundImageUrl.trim() || topic.imageUrl;
   const currentInsetUrl = (insetImageUrl.trim() || currentBackgroundUrl) ?? topic.imageUrl;
   const renderBaseUrl = buildRenderUrl({
@@ -170,9 +98,6 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     headingFont: brandFonts.heading,
     subheadingFont: brandFonts.subheading,
     useBrandFonts: true,
-    placementOverrides,
-    omitTextLayers: true,
-    omitEditableLayers: true,
   });
   const previewImageUrl = `${renderBaseUrl}&format=jpeg&snapshot=${buildSnapshotKey({
     headline,
@@ -186,7 +111,6 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
     selectedTemplateId,
     placement,
     useBrandFonts: "true",
-    placementOverrides: JSON.stringify(placementOverrides),
   })}`;
   const captionExport = [captionText, currentCaption?.ctaText, currentCaption?.hashtagsText]
     .filter(Boolean)
@@ -223,162 +147,6 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
       cancelled = true;
     };
   }, [displayedPreviewUrl, previewImageUrl]);
-
-  const previewScale = (frameWidth || previewMaxWidth) / activeTemplate.width;
-  const effectiveHeadline = {
-    x: placementOverrides.headline?.x ?? activeTemplate.config?.headline.x ?? 0,
-    y: placementOverrides.headline?.y ?? activeTemplate.config?.headline.y ?? 0,
-    width: placementOverrides.headline?.width ?? activeTemplate.config?.headline.width ?? 320,
-    fontSize: headlineSize,
-    rotation: placementOverrides.headline?.rotation ?? activeTemplate.config?.headline.rotation ?? 0,
-    paddingY: activeTemplate.config?.headline.paddingY ?? 0,
-  };
-  const effectiveSubheadline = {
-    x: placementOverrides.subheadline?.x ?? activeTemplate.config?.subheadline.x ?? 0,
-    y: placementOverrides.subheadline?.y ?? activeTemplate.config?.subheadline.y ?? 0,
-    width: placementOverrides.subheadline?.width ?? activeTemplate.config?.subheadline.width ?? 320,
-    fontSize: summarySize,
-    paddingY: activeTemplate.config?.subheadline.paddingY ?? 0,
-  };
-  const effectiveInset = {
-    x: placementOverrides.insetImage?.x ?? activeTemplate.config?.insetImage?.x ?? 0,
-    y: placementOverrides.insetImage?.y ?? activeTemplate.config?.insetImage?.y ?? 0,
-    size: placementOverrides.insetImage?.size ?? activeTemplate.config?.insetImage?.size ?? 180,
-    cornerRadius: activeTemplate.config?.insetImage?.cornerRadius ?? 999,
-  };
-  const effectiveFocalPoint = {
-    x: placementOverrides.background?.focalPoint?.x ?? activeTemplate.config?.background.focalPoint?.x ?? 0.5,
-    y: placementOverrides.background?.focalPoint?.y ?? activeTemplate.config?.background.focalPoint?.y ?? 0.5,
-  };
-
-  useEffect(() => {
-    if (!interaction) {
-      return;
-    }
-
-    const handleMove = (event: PointerEvent) => {
-      const deltaX = (event.clientX - interaction.startX) / Math.max(previewScale, 0.001);
-      const deltaY = (event.clientY - interaction.startY) / Math.max(previewScale, 0.001);
-
-      setPlacementOverrides((current) => {
-        if (interaction.layer === "headline") {
-          const nextX = clamp(interaction.originX + deltaX, 0, activeTemplate.width - 160);
-          const nextY = clamp(interaction.originY + deltaY, 0, activeTemplate.height - 120);
-          const nextWidth =
-            interaction.mode === "resize"
-              ? clamp(interaction.originWidth + deltaX, 240, activeTemplate.width - nextX)
-              : current.headline?.width ?? effectiveHeadline.width;
-
-          return {
-            ...current,
-            headline: {
-              ...(current.headline ?? {}),
-              x: nextX,
-              y: interaction.mode === "move" ? nextY : current.headline?.y ?? effectiveHeadline.y,
-              width: nextWidth,
-            },
-          };
-        }
-
-        if (interaction.layer === "inset") {
-          const nextX = clamp(interaction.originX + deltaX, 0, activeTemplate.width - 80);
-          const nextY = clamp(interaction.originY + deltaY, 0, activeTemplate.height - 80);
-          const nextSize =
-            interaction.mode === "resize"
-              ? clamp(interaction.originWidth + deltaX, 80, Math.min(activeTemplate.width - nextX, activeTemplate.height - nextY))
-              : current.insetImage?.size ?? effectiveInset.size;
-
-          return {
-            ...current,
-            insetImage: {
-              ...(current.insetImage ?? {}),
-              x: nextX,
-              y: interaction.mode === "move" ? nextY : current.insetImage?.y ?? effectiveInset.y,
-              size: nextSize,
-            },
-          };
-        }
-
-        if (interaction.layer === "background") {
-          return {
-            ...current,
-            background: {
-              focalPoint: {
-                x: clamp((interaction.originX + deltaX) / activeTemplate.width, 0, 1),
-                y: clamp((interaction.originY + deltaY) / activeTemplate.height, 0, 1),
-              },
-            },
-          };
-        }
-
-        const nextX = clamp(interaction.originX + deltaX, 0, activeTemplate.width - 160);
-        const nextY = clamp(interaction.originY + deltaY, 0, activeTemplate.height - 80);
-        const nextWidth =
-          interaction.mode === "resize"
-            ? clamp(interaction.originWidth + deltaX, 240, activeTemplate.width - nextX)
-            : current.subheadline?.width ?? effectiveSubheadline.width;
-
-        return {
-          ...current,
-          subheadline: {
-            ...(current.subheadline ?? {}),
-            x: nextX,
-            y: interaction.mode === "move" ? nextY : current.subheadline?.y ?? effectiveSubheadline.y,
-            width: nextWidth,
-          },
-        };
-      });
-    };
-
-    const handleUp = () => setInteraction(null);
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-
-    return () => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-    };
-  }, [
-    activeTemplate.height,
-    activeTemplate.width,
-    effectiveFocalPoint.x,
-    effectiveFocalPoint.y,
-    effectiveHeadline.width,
-    effectiveHeadline.y,
-    effectiveInset.size,
-    effectiveInset.y,
-    effectiveSubheadline.width,
-    effectiveSubheadline.y,
-    interaction,
-    previewScale,
-  ]);
-
-  function startInteraction(event: ReactPointerEvent<HTMLElement>, layer: EditableLayer, mode: "move" | "resize") {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const source =
-      layer === "headline"
-        ? effectiveHeadline
-        : layer === "subheadline"
-          ? effectiveSubheadline
-          : layer === "inset"
-            ? effectiveInset
-            : {
-                x: effectiveFocalPoint.x * activeTemplate.width,
-                y: effectiveFocalPoint.y * activeTemplate.height,
-                width: 0,
-              };
-    setInteraction({
-      mode,
-      layer,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: source.x,
-      originY: source.y,
-      originWidth: source.width,
-    });
-  }
 
   async function handleImageUpload(
     event: ChangeEvent<HTMLInputElement>,
@@ -456,7 +224,6 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
           hook,
           headlineSize,
           summarySize,
-          placementOverrides,
           backgroundImageUrl: currentBackgroundUrl,
           insetImageUrl: currentInsetUrl,
           templateId: activeTemplate.id,
@@ -545,175 +312,12 @@ export function DraftStudioEditor({ draft, template, templates, topic, initialTe
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="rounded-[2rem] bg-[#10171c] p-4 shadow-[0_28px_80px_rgba(14,23,29,0.28)]">
-            <div
-              ref={previewFrameRef}
-              className="mx-auto relative overflow-hidden rounded-[1.6rem] bg-black"
-              style={{ width: previewMaxWidth, maxWidth: "100%" }}
-            >
+            <div className="mx-auto overflow-hidden rounded-[1.6rem] bg-black" style={{ width: previewMaxWidth, maxWidth: "100%" }}>
               <img
                 src={displayedPreviewUrl}
                 alt={`${topic.title} preview`}
                 className={`block h-auto w-full transition-opacity duration-200 ${previewPending ? "opacity-80" : "opacity-100"}`}
               />
-              <div className="pointer-events-none absolute inset-0 z-20">
-                <button
-                  type="button"
-                  onPointerDown={(event) => startInteraction(event, "background", "move")}
-                  className="pointer-events-auto absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[rgba(15,17,21,0.62)] shadow-[0_8px_20px_rgba(15,17,21,0.25)]"
-                  style={{
-                    left: effectiveFocalPoint.x * activeTemplate.width * previewScale,
-                    top: effectiveFocalPoint.y * activeTemplate.height * previewScale,
-                  }}
-                >
-                  <span className="absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
-                    Image focus
-                  </span>
-                </button>
-
-                <div
-                  className="absolute z-20"
-                  style={{
-                    left: effectiveHeadline.x * previewScale,
-                    top: effectiveHeadline.y * previewScale,
-                    width: effectiveHeadline.width * previewScale,
-                    height:
-                      estimateBoxHeight(
-                        headline,
-                        effectiveHeadline.width,
-                        effectiveHeadline.fontSize,
-                        activeTemplate.templateType,
-                        effectiveHeadline.paddingY * 2,
-                      ) * previewScale,
-                    transform: `rotate(${effectiveHeadline.rotation}deg)`,
-                    transformOrigin: "top left",
-                  }}
-                >
-                  <div className="absolute inset-0 rounded-[1rem] bg-white shadow-[0_14px_30px_rgba(15,17,21,0.18)]" />
-                  <div
-                    className="absolute inset-0 flex flex-col justify-end text-left font-semibold text-[#0f1115]"
-                    style={{
-                      paddingLeft: (activeTemplate.config?.headline.paddingX ?? 0) * previewScale,
-                      paddingRight: (activeTemplate.config?.headline.paddingX ?? 0) * previewScale,
-                      paddingTop: 24 * previewScale,
-                      paddingBottom: (activeTemplate.config?.headline.paddingY ?? 0) * previewScale,
-                      fontSize: effectiveHeadline.fontSize * previewScale,
-                      lineHeight: 1.08,
-                    }}
-                  >
-                    {wrapTextForEstimate(
-                      headline,
-                      activeTemplate.templateType === "story"
-                        ? Math.max(Math.round(effectiveHeadline.width / 34), 16)
-                        : Math.max(Math.round(effectiveHeadline.width / 32), 18),
-                    )
-                      .slice(0, 3)
-                      .map((line, index) => (
-                        <div key={`${line}-${index}`}>{line}</div>
-                      ))}
-                  </div>
-                  <button
-                    type="button"
-                    onPointerDown={(event) => startInteraction(event, "headline", "move")}
-                    className="pointer-events-auto absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.82)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white"
-                  >
-                    Headline
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={(event) => startInteraction(event, "headline", "resize")}
-                    className="pointer-events-auto absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--accent)]"
-                    aria-label="Resize headline"
-                  />
-                </div>
-
-                <div
-                  className="absolute z-20"
-                  style={{
-                    left: effectiveSubheadline.x * previewScale,
-                    top: effectiveSubheadline.y * previewScale,
-                    width: effectiveSubheadline.width * previewScale,
-                    height:
-                      estimateBoxHeight(
-                        summary,
-                        effectiveSubheadline.width,
-                        effectiveSubheadline.fontSize,
-                        activeTemplate.templateType,
-                        effectiveSubheadline.paddingY * 2,
-                      ) * previewScale,
-                  }}
-                >
-                  {activeTemplate.config?.subheadline.backgroundColor ? (
-                    <div
-                      className="absolute inset-0 rounded-[1rem]"
-                      style={{ backgroundColor: activeTemplate.config.subheadline.backgroundColor }}
-                    />
-                  ) : null}
-                  <div
-                    className="absolute inset-0 flex flex-col justify-end text-left font-semibold text-white"
-                    style={{
-                      paddingLeft: (activeTemplate.config?.subheadline.paddingX ?? 0) * previewScale,
-                      paddingRight: (activeTemplate.config?.subheadline.paddingX ?? 0) * previewScale,
-                      paddingTop: 24 * previewScale,
-                      paddingBottom: (activeTemplate.config?.subheadline.paddingY ?? 0) * previewScale,
-                      fontSize: effectiveSubheadline.fontSize * previewScale,
-                      lineHeight: 1.08,
-                      textShadow: "0 2px 10px rgba(0,0,0,0.28)",
-                    }}
-                  >
-                    {wrapTextForEstimate(
-                      summary,
-                      activeTemplate.templateType === "story"
-                        ? Math.max(Math.round(effectiveSubheadline.width / 34), 16)
-                        : Math.max(Math.round(effectiveSubheadline.width / 32), 18),
-                    )
-                      .slice(0, 3)
-                      .map((line, index) => (
-                        <div key={`${line}-${index}`}>{line}</div>
-                      ))}
-                  </div>
-                  <button
-                    type="button"
-                    onPointerDown={(event) => startInteraction(event, "subheadline", "move")}
-                    className="pointer-events-auto absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.82)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white"
-                  >
-                    Secondary
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={(event) => startInteraction(event, "subheadline", "resize")}
-                    className="pointer-events-auto absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--navy)]"
-                    aria-label="Resize secondary"
-                  />
-                </div>
-                {activeTemplate.config?.insetImage ? (
-                  <button
-                    type="button"
-                    onPointerDown={(event) => startInteraction(event, "inset", "move")}
-                    className="pointer-events-auto absolute z-20 overflow-hidden border-2 border-white/90 bg-white/8 shadow-[0_8px_20px_rgba(15,17,21,0.2)]"
-                    style={{
-                      left: effectiveInset.x * previewScale,
-                      top: effectiveInset.y * previewScale,
-                      width: effectiveInset.size * previewScale,
-                      height: effectiveInset.size * previewScale,
-                      borderRadius: Math.min(effectiveInset.cornerRadius, effectiveInset.size / 2) * previewScale,
-                    }}
-                  >
-                    <img
-                      src={currentInsetUrl}
-                      alt="Inset preview"
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/10" />
-                    <span className="absolute left-3 top-2 rounded-full bg-[rgba(15,17,21,0.72)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
-                      Inset image
-                    </span>
-                    <span
-                      onPointerDown={(event) => startInteraction(event, "inset", "resize")}
-                      className="absolute bottom-2 right-2 h-4 w-4 rounded-full border border-white bg-[color:var(--success)]"
-                    />
-                  </button>
-                ) : null}
-              </div>
             </div>
             {previewPending ? <p className="mx-auto mt-3 max-w-[560px] text-xs uppercase tracking-[0.18em] text-white/56">Updating preview…</p> : null}
             {placement === "feed" ? (
@@ -1001,9 +605,6 @@ function buildRenderUrl({
   headingFont,
   subheadingFont,
   useBrandFonts,
-  placementOverrides,
-  omitTextLayers,
-  omitEditableLayers,
 }: {
   draftId: string;
   headline: string;
@@ -1018,9 +619,6 @@ function buildRenderUrl({
   headingFont: string;
   subheadingFont: string;
   useBrandFonts: boolean;
-  placementOverrides: TemplatePlacementOverrides;
-  omitTextLayers?: boolean;
-  omitEditableLayers?: boolean;
 }) {
   const params = new URLSearchParams({
     headline,
@@ -1043,18 +641,6 @@ function buildRenderUrl({
     params.set("customTemplate", JSON.stringify(customTemplate));
   }
 
-  if (placementOverrides.headline || placementOverrides.subheadline) {
-    params.set("placementOverrides", JSON.stringify(placementOverrides));
-  }
-
-  if (omitTextLayers) {
-    params.set("omitTextLayers", "true");
-  }
-
-  if (omitEditableLayers) {
-    params.set("omitEditableLayers", "true");
-  }
-
   return `/api/renders/drafts/${draftId}?${params.toString()}`;
 }
 
@@ -1070,42 +656,4 @@ function buildSnapshotKey(input: Record<string, string | number>) {
   return Object.entries(input)
     .map(([key, value]) => `${key}:${value}`)
     .join("|");
-}
-
-function buildEditorStorageKey(draftId: string, templateId: string) {
-  return `graffiti-run-draft-editor:${draftId}:${templateId}`;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function wrapTextForEstimate(text: string, lineLength: number) {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= lineLength) {
-      current = candidate;
-    } else {
-      if (current) {
-        lines.push(current);
-      }
-      current = word;
-    }
-  }
-
-  if (current) {
-    lines.push(current);
-  }
-
-  return lines;
-}
-
-function estimateBoxHeight(text: string, width: number, fontSize: number, templateType: Template["templateType"], paddingY: number) {
-  const lineLength = templateType === "story" ? Math.max(Math.round(width / 34), 16) : Math.max(Math.round(width / 32), 18);
-  const lines = wrapTextForEstimate(text, lineLength).slice(0, templateType === "story" ? 3 : 3);
-  return Math.max(lines.length * fontSize * 1.08 + paddingY + 12, fontSize + paddingY + 20);
 }
